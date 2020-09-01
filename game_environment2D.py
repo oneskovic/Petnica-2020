@@ -51,9 +51,9 @@ class GameEnv(py_environment.PyEnvironment):
   max_moves = 200 # The maximum number of moves a game can last
   current_move_number = 0
   board_food_count = 10 # The number of green organisms always present on the board
-  blue_organisms_start_count = 5
-  red_organisms_start_count = 2
-  input_layer_count = 17
+  blue_organisms_start_count = 10
+  red_organisms_start_count = 10
+  input_layer_count = 15
   reproduction_cooldown = 3
   
   organisms_to_move = []
@@ -143,11 +143,11 @@ class GameEnv(py_environment.PyEnvironment):
     state += self.organisms_to_move[0].to_list() # Append the organism that should move to the front
     
     ordered_blues = self.__sort_organisms_by_distance(self.blue_organisms,self.organism_to_move)
-    state += self.organisms_to_array(ordered_blues, self.blue_organisms_start_count)#self.input_layer_count/3)
+    state += self.organisms_to_array(ordered_blues, self.input_layer_count/3)
     ordered_reds = self.__sort_organisms_by_distance(self.red_organisms,self.organism_to_move)
-    state += self.organisms_to_array(ordered_reds,  self.red_organisms_start_count)
+    state += self.organisms_to_array(ordered_reds,  self.input_layer_count/3)
     ordered_greens = self.__sort_organisms_by_distance(self.green_organisms,self.organism_to_move)
-    state += self.organisms_to_array(ordered_greens, self.board_food_count)
+    state += self.organisms_to_array(ordered_greens, self.input_layer_count/3)
     return state
 
   def _reset(self):

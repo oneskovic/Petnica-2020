@@ -72,6 +72,7 @@ class Organism:
         self.coefficients = coefficients
         self.time_to_reproduce = time_to_reproduce
         self.time_alive = 0
+        self.id = np.random.randint(-100000000,100000000)
 
     def to_list(self, include_coefs = False):
         if include_coefs:
@@ -227,7 +228,7 @@ class GameEnv(py_environment.PyEnvironment):
         return 0
     # Find the organism that maximises the function
     max_result_organism = other_organisms[0]
-    max_result = -1
+    max_result = float('-inf')
     for other_organism in other_organisms:
         if organism.id == other_organism.id:
             continue

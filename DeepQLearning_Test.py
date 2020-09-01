@@ -27,6 +27,8 @@ from tf_agents.environments import utils
 from tf_agents.policies.epsilon_greedy_policy import EpsilonGreedyPolicy
 from game_environment2D import GameEnv
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 num_iterations = 20000 # @param {type:"integer"}
 
 initial_collect_steps = 1000  # @param {type:"integer"} 
