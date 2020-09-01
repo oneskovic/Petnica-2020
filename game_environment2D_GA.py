@@ -44,7 +44,7 @@ class Organism:
             return self.__multiply_params(parameters,times_used) * available_coefs.popleft()  
         
         sub_sum = 0.0
-        for _ in range(max_degree):
+        for _ in range(max_degree+1):
             sub_sum += self.__eval_function(parameters,times_used,position+1,max_degree,available_coefs)
             times_used[position] += 1
         times_used[position] = 0
@@ -96,14 +96,14 @@ class GameEnv(py_environment.PyEnvironment):
 
   green_organisms = []
   start_hp = 20 # HP / energy that all organisms have when the game starts
-  board_length = 8 # Board will be of size board_length x board_length
+  board_length = 10 # Board will be of size board_length x board_length
   food_energy = 10 # Energy that each green organism will have
   max_moves = 200 # The maximum number of moves a game can last
   current_move_number = 0
   board_food_count = 10 # The number of green organisms always present on the board
   reproduction_cooldown = 3
 
-  def __init__(self, blue_start_coefs, red_start_coefs, polynomial_degree):
+  def __init__(self, blue_start_coefs, red_start_coefs, polynomial_degree, food_count = 10, board_size = 10):
     # Initialize specs
     self._action_spec = array_spec.BoundedArraySpec(
         shape=(), dtype=np.int32, minimum=0, maximum=3, name='action')
@@ -116,6 +116,8 @@ class GameEnv(py_environment.PyEnvironment):
     self.dead_blue_organisms = []
     self.dead_red_organisms = []
     self.polynomial_degree = polynomial_degree
+    self.board_food_count = food_count
+    self.board_length = board_size
 
     # Initialize blue organisms
     for start_coefs in blue_start_coefs:
