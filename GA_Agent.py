@@ -6,18 +6,6 @@ import random
 import os
 import time
 
-import tensorflow as tf
-
-from tf_agents.drivers import dynamic_step_driver
-from tf_agents.environments import suite_gym
-from tf_agents.environments import tf_py_environment
-from tf_agents.eval import metric_utils
-from tf_agents.metrics import tf_metrics
-from tf_agents.policies import random_tf_policy
-from tf_agents.replay_buffers import tf_uniform_replay_buffer
-from tf_agents.trajectories import trajectory
-from tf_agents.utils import common
-from tf_agents.environments import utils
 from functools import cmp_to_key
 from game_environment2D_GA import GameEnv
 from plotting import Plotter
@@ -48,33 +36,30 @@ class GA_Agent:
 
     
     def __evaluate_ga(self,blue_coeffs, red_coeffs, eval_py_env , display_moves = False, no_tests = 10):
-        env = tf_py_environment.TFPyEnvironment(eval_py_env)
         if display_moves:
             episode_path = 'game-drawn/episode-'+str(self.episode_count)
             if not os.path.exists(self.base_path + episode_path):
                 os.makedirs(self.base_path + episode_path)
             
-            time_step = env.reset()
+            time_step = eval_py_env.reset()
             picture_count = 0
             while not time_step.is_last():
-                observation = time_step.observation.numpy()[0]
+                observation = time_step.observation
                 self.plotter.plot_state(observation,episode_path+'/'+str(picture_count)+'.jpeg')
                 picture_count += 1
-                action = np.array(0, dtype=np.int32)
-                time_step = env.step(action)
+                time_step = eval_py_env.step()
             
             picture_count = 0
             self.episode_count += 1
 
         total_return = 0.0
         for _ in range(no_tests):
-            time_step = env.reset()
+            time_step = eval_py_env.reset()
             episode_return = 0.0
 
             while not time_step.is_last():
                 #print(time_step.observation.numpy())
-                action = np.array(0, dtype=np.int32)
-                time_step = env.step(action)
+                time_step = eval_py_env.step()
                 episode_return += time_step.reward
             total_return += episode_return
 
@@ -124,12 +109,11 @@ class GA_Agent:
                 prev_blue_organisms = []
                 prev_red_organisms = []
                 if generation_number > 0:
-                    prev_blue_organisms = py_environment.dead_blue_organisms
-                    prev_red_organisms =  py_environment.dead_red_organisms 
+                    prev_blue_organisms = env.dead_blue_organisms
+                    prev_red_organisms =  env.dead_red_organisms 
                     
-                py_environment = GameEnv(blue_coeffs,red_coeffs,max_degree,hparams['food_count'],hparams['board_size'])
+                env = GameEnv(blue_coeffs,red_coeffs,max_degree,hparams['food_count'],hparams['board_size'])
                 #utils.validate_py_environment(py_environment, episodes=5)
-                env = tf_py_environment.TFPyEnvironment(py_environment)
                 
                 # Evaluate the GA
                 if self.eval_interval > 0 and (generation_number+1) % self.eval_interval == 0:
@@ -146,13 +130,12 @@ class GA_Agent:
                 time_step = env.reset()
                 while not time_step.is_last():
                     #print(time_step.observation.numpy())
-                    action = np.array(0, dtype=np.int32)
-                    time_step = env.step(action)
+                    time_step = env.step()
 
                 # Pick best genomes for the next generation
-                blue_organisms = py_environment.dead_blue_organisms
+                blue_organisms = env.dead_blue_organisms
                 blue_coeffs = self.ga_util.get_coeffs_from_best(blue_organisms, no_blues, hparams['no_best'], round(no_random), mutation_factor_range)
-                red_organisms = py_environment.dead_red_organisms
+                red_organisms = env.dead_red_organisms
                 red_coeffs = self.ga_util.get_coeffs_from_best(red_organisms, no_reds, hparams['no_best'], round(no_random), mutation_factor_range)
                 
                 # Reduce the number of random organisms and mutation_factor_range
