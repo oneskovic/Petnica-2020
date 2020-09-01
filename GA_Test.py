@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 import os
+import time
 
 import tensorflow as tf
 
@@ -20,24 +21,29 @@ from tf_agents.environments import utils
 from functools import cmp_to_key
 from game_environment2D_GA import GameEnv
 from plotting import Plotter
+from random_util import RandomUtil
+from ga_util import GaUtil
 
-random_seed = 123
+random_seed = round(time.time())
 log_interval = 5
 
 np.random.seed(random_seed)
 random.seed(random_seed)
 tf.random.set_seed(random_seed)
 np_random_generator = np.random.default_rng(seed=random_seed)
-plotter = Plotter()
+
+random_util = RandomUtil(random_seed)
+base_path = 'results/GA-'+random_util.generate_random_string(6)+'/'
+plotter = Plotter(base_path)
 episode_count = 0
-def calculate_average_return(blue_coeffs, red_coeffs, polynomial_degree, display_moves = False, no_tests = 10):
-    py_environment = GameEnv(blue_coeffs, red_coeffs, polynomial_degree)
-    env = tf_py_environment.TFPyEnvironment(py_environment)
+
+def evaluate_ga(blue_coeffs, red_coeffs, eval_py_env , display_moves = False, no_tests = 10):
+    env = tf_py_environment.TFPyEnvironment(eval_py_env)
     if display_moves:
         global episode_count
-        episode_path = 'results/GA-2/game-drawn/episode-'+str(episode_count)
-        if not os.path.exists(episode_path):
-            os.makedirs(episode_path)
+        episode_path = 'game-drawn/episode-'+str(episode_count)
+        if not os.path.exists(base_path + episode_path):
+            os.makedirs(base_path + episode_path)
         
         time_step = env.reset()
         picture_count = 0
@@ -65,54 +71,7 @@ def calculate_average_return(blue_coeffs, red_coeffs, polynomial_degree, display
 
     return total_return/no_tests
 
-def get_random_array(size, min_value, max_value):
-    return (max_value-min_value)*np_random_generator.random(size) + min_value
-
-def generate_random_coefficients(no_organisms, no_coefficients):
-    coeffs = []
-    for _ in range(no_organisms):
-        organism_coeffs = get_random_array(no_coefficients,-1000,1000)
-        coeffs.append(organism_coeffs)
-    return coeffs
-
-def compare_organisms(organism1,organism2):
-    if organism1.time_alive < organism2.time_alive:
-        return 1
-    elif organism1.time_alive > organism2.time_alive:
-        return -1
-    else:
-        return 0
-
-# Combines coefficients from organism1 and organism2
-# Mutates the child and returns the coefficients
-def combine_organisms(organism1,organism2,hparams):
-    coefs1 = np.array(organism1.coefficients)
-    coefs2 = np.array(organism2.coefficients)
-    child_coefs = (coefs1+coefs2)/2.0 # Average the coefficients
-    mutation_range = hparams['mutation_factor_range']
-
-    mutation_vector = get_random_array(len(child_coefs),mutation_range[0],mutation_range[1])
-    mutation_vector = np.multiply(child_coefs,mutation_vector) # Multiply element-wise    
-    child_coefs += mutation_vector # Mutate
-
-    return list(child_coefs)
-
-def get_coeffs_from_best(organisms, count, hparams):
-    ordered_organisms = sorted(organisms,key=cmp_to_key(compare_organisms))
-    best_organisms = ordered_organisms[:hparams['no_best']]
-
-    coeffs = []
-    for _ in range(count - hparams['no_random']):
-        positions = random.sample(range(0,len(best_organisms)),2)
-        coeffs.append(combine_organisms(best_organisms[positions[0]],
-                                        best_organisms[positions[1]],hparams))
-
-    coeffs += generate_random_coefficients(hparams['no_random'],
-                                           hparams['max_function_degree'])
-
-    return coeffs
-
-def plot_coefs(single_organism_coefs):
+def plot_coefs(single_organism_coefs, file_name):
     x = 0.0
     x_values = []
     function_values = []
@@ -128,59 +87,94 @@ def plot_coefs(single_organism_coefs):
         function_values.append(evaluate_function(x))
         x_values.append(x)
         x += step
-    plt.plot(x_values,function_values)
     
-def try_hparams(hparams):
+    plotter.plot_simple_values(x=x_values,y=function_values,directory=file_name)
 
-    max_degree = hparams['max_function_degree']
+def try_hparams(hparams, game_params):
+    max_degree = hparams['max_parameter_degree']
     no_blues = hparams['no_blue_organisms']
     no_reds = hparams['no_red_organisms']
-    max_degree = hparams['max_function_degree']
+    no_parameters = hparams['no_parameters']
+    coef_count = np.power(max_degree+1,no_parameters)
+    ga_util = GaUtil(random_util,coef_count)
     
-    blue_coeffs = generate_random_coefficients(no_blues,max_degree)
-    red_coeffs = generate_random_coefficients(no_reds,max_degree)
+    blue_coeffs = random_util.get_random_matrix(no_blues,coef_count,[-1000,1000])
+    red_coeffs = random_util.get_random_matrix(no_reds,coef_count,[-1000,1000])
 
     returns = []
+    # Train the genetic algorithm
+    no_random = hparams['no_random_start'] * 1.0
+    random_step = (hparams['no_random_final']-no_random)/hparams['no_random_anneal_time']
+    mutation_factor_range = np.array(hparams['mutation_factor_range_start'])
+    mutation_factor_range_final = np.array(hparams['mutation_factor_range_final'])
+    mutation_factor_range_step = (mutation_factor_range_final - mutation_factor_range)\
+                                 / hparams['mutation_factor_range_anneal_time']
+    
     for generation_number in range(hparams['no_generations']):
-        py_environment = GameEnv(blue_coeffs,red_coeffs,max_degree)
+        prev_blue_organisms = []
+        prev_red_organisms = []
+        if generation_number > 0:
+            prev_blue_organisms = py_environment.dead_blue_organisms
+            prev_red_organisms =  py_environment.dead_red_organisms 
+            
+        py_environment = GameEnv(blue_coeffs,red_coeffs,max_degree,hparams['food_count'],hparams['board_size'])
         #utils.validate_py_environment(py_environment, episodes=5)
         env = tf_py_environment.TFPyEnvironment(py_environment)
-        if generation_number % log_interval == 0:
-            avg_return = calculate_average_return(blue_coeffs,red_coeffs,max_degree,True)
+        
+        if (generation_number+1) % log_interval == 0:
+            eval_blue_coeffs = ga_util.get_coeffs_from_best(prev_blue_organisms, game_params['no_blue_organisms'], game_params['no_blue_organisms'], 0, [0,0])
+            eval_red_coeffs = ga_util.get_coeffs_from_best(prev_red_organisms, game_params['no_red_organisms'], game_params['no_red_organisms'], 0, [0,0])
+            eval_py_env = GameEnv(eval_blue_coeffs,eval_red_coeffs,max_degree,game_params['food_count'],game_params['board_size'])
+            
+            avg_return = evaluate_ga(blue_coeffs,red_coeffs,eval_py_env,True)
             returns.append(avg_return)
             print(avg_return)
         
+        # Play the game
         time_step = env.reset()
         while not time_step.is_last():
             #print(time_step.observation.numpy())
             action = np.array(0, dtype=np.int32)
             time_step = env.step(action)
 
+        # Pick best genomes for the next generation
         blue_organisms = py_environment.dead_blue_organisms
-        blue_coeffs = get_coeffs_from_best(blue_organisms, no_blues, hparams)
+        blue_coeffs = ga_util.get_coeffs_from_best(blue_organisms, no_blues, hparams['no_best'], round(no_random), mutation_factor_range)
         red_organisms = py_environment.dead_red_organisms
-        red_coeffs = get_coeffs_from_best(red_organisms, no_reds, hparams)
+        red_coeffs = ga_util.get_coeffs_from_best(red_organisms, no_reds, hparams['no_best'], round(no_random), mutation_factor_range)
+        
+        # Reduce the number of random organisms and mutation_factor_range
+        no_random += random_step
+        mutation_factor_range += mutation_factor_range_step
 
-    plt.plot(list(returns))
-    plt.show()
-    plt.clf()
-
+    plotter.plot_simple_values(y=list(returns),directory='score.jpeg')
     for single_organism_coefs in red_coeffs:
-        plot_coefs(single_organism_coefs)
-    plt.show()
-    plt.cla()
+        plot_coefs(single_organism_coefs,'red-coeffs.jpeg')
     for single_organism_coefs in blue_coeffs:
-        plot_coefs(single_organism_coefs)
-
-    plt.show()
+        plot_coefs(single_organism_coefs,'blue-coeffs.jpeg')
+    hparams['random_seed'] = random_seed
+    plotter.dump_to_json(hparams,'hparams.json')
 
 hparams = {
-    'max_function_degree': 5, # Degree of polynomial used for function approximation
-    'no_blue_organisms': 10, 
-    'no_red_organisms': 10,
-    'no_random': 3, # Number of random organisms inserted into each new generation
-    'mutation_factor_range': [-0.1,0.1], # When mutating each coefficient will be multiplied by a random value in this range
+    'max_parameter_degree': 10, # Degree of polynomial used for function approximation
+    'no_parameters': 1,
+    'no_blue_organisms': 30, 
+    'no_red_organisms': 30,
+    'food_count': 30,
+    'board_size': 30,
+    'no_random_start': 5, # Number of random organisms inserted into each new generation
+    'no_random_final': 0,
+    'no_random_anneal_time':40, # Number of generations to anneal to final value
+    'mutation_factor_range_start': [-0.1,0.1], # When mutating each coefficient will be multiplied by a random value in this range
+    'mutation_factor_range_final': [0,0],
+    'mutation_factor_range_anneal_time': 40,
     'no_best': 5, # Number of best organisms chosen for the next generation
-    'no_generations': 1000
+    'no_generations': 15
     }
-try_hparams(hparams)
+game_params = {
+    'no_red_organisms': 5,
+    'no_blue_organisms': 3,
+    'board_size': 10,
+    'food_count': 10
+}
+try_hparams(hparams,game_params)

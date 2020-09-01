@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
+import json
 
 class Plotter():
-    def __init__(self):
-        pass
+    save_path = ''
+    def __init__(self, save_path):
+        self.save_path = save_path
     def __plot_organisms(self,organisms,cmap):
         x_positions = []
         y_positions = []
@@ -36,5 +38,21 @@ class Plotter():
         self.__plot_organisms(red_organisms,'Reds')
         self.__plot_organisms(blue_organisms,'Blues')
         self.__plot_organisms(green_organisms,'Greens')
-        plt.savefig(directory)
+        plt.savefig(self.save_path + directory)
         plt.cla()
+    
+    def plot_simple_values(self, x = [], y = [], directory = ''):
+        plt.cla()
+        if len(x) == 0:
+            plt.plot(y)
+        else:
+            plt.plot(x,y)
+        if directory == '':
+            plt.show()
+        else:
+            plt.savefig(self.save_path + directory)
+        plt.cla()
+    def dump_to_json(self, data, directory):
+        data_file = open(self.save_path + directory,'w+')
+        json.dump(data,data_file,sort_keys=True, indent=4)
+        data_file.close()
