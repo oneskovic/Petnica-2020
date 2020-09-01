@@ -1,23 +1,19 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import abc
-import tensorflow as tf
 import numpy as np
 from copy import deepcopy
 from collections import deque
 
-from tf_agents.environments import py_environment
-from tf_agents.environments import tf_environment
-from tf_agents.environments import tf_py_environment
-from tf_agents.environments import utils
-from tf_agents.specs import array_spec
-from tf_agents.environments import wrappers
-from tf_agents.environments import suite_gym
-from tf_agents.trajectories import time_step as ts
-
-tf.compat.v1.enable_v2_behavior()
+class TimeStep:
+    observation = []
+    ts_type = 'none'
+    reward = 0.0
+    
+    def is_last(self):
+        return self.ts_type == 'termination'
+    
+    def __init__(self, type, observation, reward):
+        self.ts_type = type
+        self.observation = observation
+        self.reward = reward
 
 class Organism:
     time_alive = 0
@@ -80,7 +76,7 @@ class Organism:
         else:
             return [self.x_pos,self.y_pos,self.energy,self.time_to_reproduce,self.type,self.time_alive]
 
-class GameEnv(py_environment.PyEnvironment):
+class GameEnv():
   # Lists containing the currently alive organisms
   blue_organisms = []
   red_organisms = []
@@ -104,11 +100,6 @@ class GameEnv(py_environment.PyEnvironment):
   reproduction_cooldown = 3
 
   def __init__(self, blue_start_coefs, red_start_coefs, polynomial_degree, food_count = 10, board_size = 10):
-    # Initialize specs
-    self._action_spec = array_spec.BoundedArraySpec(
-        shape=(), dtype=np.int32, minimum=0, maximum=3, name='action')
-    self._observation_spec = array_spec.BoundedArraySpec(
-        shape=(6*(self.board_food_count+len(blue_start_coefs)+len(red_start_coefs)),), dtype=np.int32, minimum=0, name='observation')
 
     self._episode_ended = False
     self.blue_organisms = []
@@ -145,12 +136,6 @@ class GameEnv(py_environment.PyEnvironment):
 
     self.current_move_number = 0
 
-  def action_spec(self):
-    return self._action_spec
-
-  def observation_spec(self):
-    return self._observation_spec
-
   def __organisms_to_array(self,organisms_list, starting_count):
     organism_array = []
     for i in range(min(starting_count,len(organisms_list))):
@@ -169,7 +154,7 @@ class GameEnv(py_environment.PyEnvironment):
         state += green_organism.to_list()
     return state  
 
-  def _reset(self):
+  def reset(self):
     self._episode_ended = False
 
     self.blue_organisms = []
@@ -197,7 +182,7 @@ class GameEnv(py_environment.PyEnvironment):
     self.current_move_number = 0
 
     self._state = self.__get_current_game_state()
-    return ts.restart(np.array(self._state, dtype=np.int32))
+    return TimeStep('restart',self._state,0)
 
   def __reduce_organism_energy(self, organisms):
     for i in range(len(organisms)):
@@ -298,7 +283,7 @@ class GameEnv(py_environment.PyEnvironment):
                       child = Organism(organisms[i].x_pos,organisms[i].y_pos,child_energy,organisms[i].type,
                                        self.reproduction_cooldown,organisms[i].polynomial_max_degree,coefs)
                       organisms.append(child)
-  def _step(self, action):
+  def step(self):
     reward = 0
     if self._episode_ended:
       # The last action ended the episode. Ignore the current action and start
@@ -357,7 +342,6 @@ class GameEnv(py_environment.PyEnvironment):
 
     self._state = self.__get_current_game_state()
     if self._episode_ended:
-      return ts.termination(np.array(self._state, dtype=np.int32), reward)
+      return TimeStep('termination',self._state,reward)
     else:
-      return ts.transition(
-          np.array(self._state, dtype=np.int32), reward=reward, discount=0.9)
+      return TimeStep('transition',self._state,reward)
