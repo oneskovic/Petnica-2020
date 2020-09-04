@@ -29,9 +29,9 @@ from game_environment2D import GameEnv
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-num_iterations = 20000 # @param {type:"integer"}
+num_iterations = 50000 # @param {type:"integer"}
 
-initial_collect_steps = 1000  # @param {type:"integer"} 
+initial_collect_steps = 10000  # @param {type:"integer"} 
 collect_steps_per_iteration = 2  # @param {type:"integer"}
 replay_buffer_max_length = 100000  # @param {type:"integer"}
 
@@ -44,7 +44,7 @@ eval_interval = 1000  # @param {type:"integer"}
 
 start_epsilon = 1
 end_epsilon = 0.1
-epsilon_anneal_steps = 4000
+epsilon_anneal_steps = 25000
 
 nn_update_frequency = 4
 td_sample_size = 4

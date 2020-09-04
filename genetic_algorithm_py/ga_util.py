@@ -23,7 +23,6 @@ class GaUtil():
 
         return list(child_coefs)
     
-    
     def compare_organisms(self,organism1,organism2):
         if organism1.time_alive < organism2.time_alive:
             return 1
