@@ -9,8 +9,8 @@ int main()
 		{"no_parameters",1},
 		{"no_blue_organisms",30},
 		{"no_red_organisms",30},
-		{"food_count",20},
-		{"board_size",20},
+		{"food_count",30},
+		{"board_size",30},
 		{"no_random_start",20},
 		{"no_random_final",0},
 		{"no_random_anneal_time",1000},
@@ -58,7 +58,6 @@ int main()
 	/*GameEnv eval_env = GameEnv(blue_genomes, red_genomes, 3, &rand_util, 10, 10);
 	double v = ga_agent.evaluate_ga(blue_genomes, red_genomes, &eval_env, false, 30);
 	averages.push_back(v);*/
-	
 
 	auto best_genomes = ga_agent.train(game_params);
 	hparams["random_seed"] = ga_agent.get_random_seed();

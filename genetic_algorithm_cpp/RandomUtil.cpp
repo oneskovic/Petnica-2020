@@ -40,7 +40,7 @@ string RandomUtil::rand_string(size_t size)
 {
 	string rand_string = string(size, ' ');
 	for (size_t i = 0; i < size; i++)
-		rand_string[i] = char_set[rand_int(0, char_set.size())];
+		rand_string[i] = char_set[rand_int(0, char_set.size()-1)];
 	return rand_string;
 }
 
