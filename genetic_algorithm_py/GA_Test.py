@@ -16,8 +16,8 @@ hparams = {
     'no_generations': 200
     }
 game_params = {
-    'no_red_organisms': 5,
-    'no_blue_organisms': 3,
+    'no_red_organisms': 10,
+    'no_blue_organisms': 10,
     'board_size': 10,
     'food_count': 10
 }
