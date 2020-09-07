@@ -17,7 +17,7 @@ GaAgent::GaAgent(unordered_map<string, double> hyperparameters, string log_dir, 
 		this->logger = new Logger(log_dir);
 }
 
-vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_params)
+vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_params, int no_threads)
 {
 	int max_degree = hparams["max_parameter_degree"];
 	int no_blues = hparams["no_blue_organisms"];
@@ -26,8 +26,8 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	int coef_count = pow(max_degree + 1, no_parameters);
 	auto ga_util = GaUtil(&this->random_util, coef_count);
 
-	auto blue_coeffs = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
-	auto red_coeffs = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);
+	/*auto blue_coeffs = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
+	auto red_coeffs = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);*/
 	
 	vector<double> returns;
 	vector<vector<double>> best_genomes;
@@ -43,11 +43,51 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	double mutation_factor_min_step = (mutation_factor_min_final - mutation_factor_min) / hparams["mutation_factor_anneal_time"];
 	double mutation_factor_max_step = (mutation_factor_max_final - mutation_factor_max) / hparams["mutation_factor_anneal_time"];
 
-	GameEnv env = GameEnv(blue_coeffs, red_coeffs, max_degree, &this->random_util, hparams["food_count"], hparams["board_size"]);
-	vector<Organism> prev_blue_organisms, prev_red_organisms;
+	/*GameEnv env = GameEnv(blue_coeffs, red_coeffs, max_degree, &this->random_util, hparams["food_count"], hparams["board_size"]);
+	vector<Organism> prev_blue_organisms, prev_red_organisms;*/
+
+	int class_count = 100;
+	int best_classes = 10;
+	TSDeque<training_class> training_classes;
+	TSDeque<training_class> evaluated_classes;
+	for (size_t i = 0; i < class_count; i++)
+	{
+		auto blue_genomes = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);
+		auto red_genomes = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
+		training_class tc = {
+			red_genomes,
+			blue_genomes,
+			-1,
+			GameEnv(blue_genomes, red_genomes, max_degree, 
+			&random_util, hparams["food_count"], hparams["board_size"])
+		};
+		training_classes.push_back(tc);
+	}
 	for (int gen_number = 0; gen_number < hparams["no_generations"]; gen_number++)
 	{
-		if (gen_number > 0)
+		vector<thread> worker_threads(no_threads);
+		for (size_t i = 0; i < no_threads; i++)
+		{
+			worker_threads[i] = thread(&GaAgent::evaluate_training_classes, this, ref(training_classes), ref(evaluated_classes), 30);
+		}
+		for (size_t i = 0; i < no_threads; i++)
+		{
+			worker_threads[i].join();
+		}
+		auto evaluated = evaluated_classes.to_vector();
+		sort(evaluated.begin(), evaluated.end());
+		cout << evaluated[0].score << "\n";
+		returns.push_back(evaluated[0].score);
+		for (size_t i = 0; i < class_count; i++)
+		{
+			int pos1 = random_util.rand_int(0, best_classes - 1);
+			int pos2 = random_util.rand_int(0, best_classes - 1);
+			while (pos2 == pos1)
+				pos2 = random_util.rand_int(0, best_classes - 1);
+			training_classes.push_back(combine_classes(evaluated[pos1], evaluated[pos2]));
+		}
+		
+		/*if (gen_number > 0)
 		{
 			prev_blue_organisms = vector<Organism>(env.dead_blue_organisms.begin(),env.dead_blue_organisms.end());
 			prev_red_organisms = vector<Organism>(env.dead_red_organisms.begin(), env.dead_red_organisms.end());
@@ -94,7 +134,7 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 
 		no_random = max(hparams["no_random_final"],no_random+random_step);
 		mutation_factor_min = min(mutation_factor_min_final, mutation_factor_min+mutation_factor_min_step);
-		mutation_factor_max = max(mutation_factor_max_step, mutation_factor_max+mutation_factor_max_step);
+		mutation_factor_max = max(mutation_factor_max_step, mutation_factor_max+mutation_factor_max_step);*/
 	}
 
 	if (should_log)
@@ -116,6 +156,56 @@ void GaAgent::set_random_seed(size_t seed)
 	srand(seed);
 }
 
+void GaAgent::evaluate_training_classes(TSDeque<training_class>& training_classes, TSDeque<training_class>& evaluated_classes, int no_tests)
+{
+	while (!training_classes.is_empty())
+	{
+		training_class tc = training_classes.pop_front();
+		double total_return = 0;
+		for (int i = 0; i < no_tests; i++)
+		{
+			auto time_step = tc.eval_env.reset();
+			double episode_return = 0;
+			while (!time_step.is_last())
+			{
+				time_step = tc.eval_env.step();
+				episode_return += time_step.reward;
+			}
+			total_return += episode_return;
+		}
+		tc.score = total_return / no_tests;
+		evaluated_classes.push_back(tc);
+	}
+	
+}
+
+GaAgent::training_class GaAgent::combine_classes(training_class& tc1, training_class& tc2)
+{
+	random_util.random_shuffle(tc1.blue_genomes);
+	random_util.random_shuffle(tc1.red_genomes);
+	random_util.random_shuffle(tc2.blue_genomes);
+	random_util.random_shuffle(tc2.red_genomes);
+	int no_genomes = tc1.blue_genomes.size();
+	vector<vector<double>> blue_genomes; blue_genomes.reserve(no_genomes);
+	blue_genomes.insert(blue_genomes.end(), tc1.blue_genomes.begin(), tc1.blue_genomes.begin() + no_genomes/2);
+	blue_genomes.insert(blue_genomes.end(), tc2.blue_genomes.begin(), tc2.blue_genomes.begin() + no_genomes/2);
+	
+	no_genomes = tc1.red_genomes.size();
+	vector<vector<double>> red_genomes; red_genomes.reserve(no_genomes);
+	red_genomes.insert(red_genomes.end(), tc1.red_genomes.begin(), tc1.red_genomes.begin() + no_genomes/2);
+	red_genomes.insert(red_genomes.end(), tc2.red_genomes.begin(), tc2.red_genomes.begin() + no_genomes/2);
+
+	training_class combined =
+	{
+		red_genomes,
+		blue_genomes,
+		-1,
+		GameEnv(blue_genomes, red_genomes,tc1.eval_env.polynomial_degree,
+		&random_util,tc1.eval_env.board_food_count,tc1.eval_env.board_length)
+	};
+	return combined;
+}
+
 vector<vector<double>> GaAgent::organisms_to_vector(vector<Organism>* organisms)
 {
 	vector<vector<double>> organisms_vec; organisms_vec.reserve(organisms->size());
@@ -128,34 +218,44 @@ void GaAgent::log_functions(vector<Organism>& red_organisms, vector<Organism>& b
 {
 	vector<vector<double>> organism_function_evaluations; 
 	organism_function_evaluations.reserve(blue_organisms.size());
-	for (size_t i = 0; i < blue_organisms.size(); i++)
+	vector<bool> second_argument = { true, false };
+	for (bool arg : second_argument)
 	{
-		vector<double> x = { 0 }; double step = 0.03;
-		vector<double> y_values; y_values.reserve(700);
-		while (x[0] <= 20)
+		organism_function_evaluations.clear();
+		for (size_t i = 0; i < blue_organisms.size(); i++)
 		{
-			double y = blue_organisms[i].compute_function_recursive(&x);
-			y_values.push_back(y);
-			x[0] += step;
+			vector<double> x = { 0, (double)arg }; double step = 0.03;
+			vector<double> y_values; y_values.reserve(700);
+			while (x[0] <= 20)
+			{
+				double y = blue_organisms[i].compute_function_recursive(&x);
+				y_values.push_back(y);
+				x[0] += step;
+			}
+			organism_function_evaluations.push_back(y_values);
 		}
-		organism_function_evaluations.push_back(y_values);
+		logger->log_to_file(organism_function_evaluations, "functions-blue-"+to_string(arg)+".csv");
 	}
-	logger->log_to_file(organism_function_evaluations, "functions-blue.csv");
+	
 	organism_function_evaluations.clear();
 	organism_function_evaluations.reserve(red_organisms.size());
-	for (size_t i = 0; i < red_organisms.size(); i++)
+	for (bool arg : second_argument)
 	{
-		vector<double> x = { 0 }; double step = 0.03;
-		vector<double> y_values; y_values.reserve(700);
-		while (x[0] <= 20)
+		organism_function_evaluations.clear();
+		for (size_t i = 0; i < red_organisms.size(); i++)
 		{
-			double y = red_organisms[i].compute_function_recursive(&x);
-			y_values.push_back(y);
-			x[0] += step;
+			vector<double> x = { 0, (double)arg }; double step = 0.03;
+			vector<double> y_values; y_values.reserve(700);
+			while (x[0] <= 20)
+			{
+				double y = red_organisms[i].compute_function_recursive(&x);
+				y_values.push_back(y);
+				x[0] += step;
+			}
+			organism_function_evaluations.push_back(y_values);
 		}
-		organism_function_evaluations.push_back(y_values);
+		logger->log_to_file(organism_function_evaluations, "functions-red-" + to_string(arg) + ".csv");
 	}
-	logger->log_to_file(organism_function_evaluations, "functions-red.csv");
 }
 
 double GaAgent::evaluate_ga(vector<vector<double>> blue_coeffs, vector<vector<double>> red_coeffs, GameEnv* eval_env, bool display_moves, int no_tests)

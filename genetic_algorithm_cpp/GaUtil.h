@@ -1,6 +1,22 @@
 #pragma once
+#include <mutex>
+#include <deque>
 #include "RandomUtil.h"
 #include "game_environment2D_GA.h"
+template<typename t> 
+class TSDeque
+{
+public:
+	TSDeque();
+	void push_back(const t& element);
+	t pop_front();
+	bool is_empty();
+	vector<t> to_vector();
+private:
+	deque<t> elements;
+	mutex mtx;
+};
+
 class GaUtil
 {
 public:
@@ -21,3 +37,50 @@ private:
 	bool compare_organisms(Organism organism1, Organism organism2);
 };
 
+template<typename t>
+inline TSDeque<t>::TSDeque()
+{
+}
+
+template<typename t>
+inline void TSDeque<t>::push_back(const t& element)
+{
+	mtx.lock();
+	elements.push_back(element);
+	mtx.unlock();
+}
+
+template<typename t>
+inline t TSDeque<t>::pop_front()
+{
+	mtx.lock();
+	if (elements.empty())
+	{
+		mtx.unlock();
+		throw exception("pop_front() on an empty TSDeque");
+	}
+	t element = elements.front();
+	elements.pop_front();
+	mtx.unlock();
+	return element;
+}
+
+template<typename t>
+inline bool TSDeque<t>::is_empty()
+{
+	bool is_empty = false;
+	mtx.lock();
+	is_empty = elements.empty();
+	mtx.unlock();
+	return is_empty;
+}
+
+template<typename t>
+inline vector<t> TSDeque<t>::to_vector()
+{
+	vector<t> element_vec; element_vec.reserve(elements.size());
+	mtx.lock();
+	element_vec.insert(element_vec.end(), elements.begin(), elements.end());
+	mtx.unlock();
+	return element_vec;
+}

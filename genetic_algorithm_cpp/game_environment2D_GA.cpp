@@ -294,23 +294,6 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
     if (other_organisms->size() == 0)
         return { max_value, 0 };
 
-    // Find the organism that maximises the function
-    for (int i = 0; i < other_organisms->size(); i++)
-    {
-        auto other_organism = &other_organisms->at(i);
-        if (other_organism->id == organism->id)
-            continue;
-        
-        double distance = get_distance(organism, other_organism);
-        vector<double> parameters = { distance };
-        double function_value = organism->compute_function_recursive(&parameters);
-        if (function_value > max_value)
-        {
-            max_value = function_value;
-            max_value_organism = other_organism;
-        }
-    }
-    double best_distance = get_distance(organism, max_value_organism);
     int best_action = 0;
     vector<int> possible_actions = { 0,1,2,3 };
     int start_x = organism->x_pos;
@@ -319,16 +302,23 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
     for (int action: possible_actions)
     {
         move_organism(organism, action);
-        double distance = get_distance(organism, max_value_organism);
-        if (distance <= best_distance && organism->type >= max_value_organism->type)
+        double current_value = 0;
+        for (int i = 0; i < other_organisms->size(); i++)
         {
-            best_action = action;
-            best_distance = distance;
+            auto other_organism = &other_organisms->at(i);
+            if (other_organism->id == organism->id)
+                continue;
+
+            double distance = get_distance(organism, other_organism);
+            bool is_predator_relative = other_organism->type > organism->type;
+            vector<double> parameters = { distance, (double)is_predator_relative };
+            double function_value = organism->compute_function_recursive(&parameters);
+            current_value += function_value;
         }
-        if (distance >= best_distance && organism->type <= max_value_organism->type)
+        if (current_value > max_value)
         {
             best_action = action;
-            best_distance = distance;
+            max_value = current_value;
         }
         organism->x_pos = start_x;
         organism->y_pos = start_y;
@@ -342,15 +332,23 @@ void GameEnv::process_actions_for_organisms(vector<Organism>* organisms, vector<
     {
         double max_score = numeric_limits<double>::min();
         int best_action = 0;
-        for (auto other_organisms_vec: other_organisms)
+        /*for (auto other_organisms_vec: other_organisms)
+        {*/
+        vector<Organism> other_organisms_vec;
+        for (int i = 0; i < other_organisms.size(); i++)
         {
-            auto best = compute_organism_action(&organisms->at(i), other_organisms_vec);
-            if (best.first > max_score)
+            for (size_t j = 0; j < other_organisms[i]->size(); j++)
             {
-                max_score = best.first;
-                best_action = best.second;
+                other_organisms_vec.push_back(other_organisms[i]->at(j));
             }
         }
+        auto best = compute_organism_action(&organisms->at(i), &other_organisms_vec);
+        if (best.first > max_score)
+        {
+            max_score = best.first;
+            best_action = best.second;
+        }
+        //}
         move_organism(&organisms->at(i), best_action);
     }
 }

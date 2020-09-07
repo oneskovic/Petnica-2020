@@ -11,7 +11,7 @@ RandomUtil::RandomUtil()
 	mersenne_twister = mt19937(rand_device());
 }
 
-vector<double> RandomUtil::get_random_array(int size, int min_value, int max_value)
+vector<double> RandomUtil::get_random_array(int size, double min_value, double max_value)
 {
 	vector<double> rand_array = vector<double>(size);
 	for (size_t i = 0; i < size; i++)
@@ -53,6 +53,11 @@ int RandomUtil::rand_int(int min, int max)
 		integer_distributions[interval] = std::uniform_int_distribution<int>(min, max);
 	}
 	return integer_distributions[interval](mersenne_twister);
+}
+
+int RandomUtil::rand_int(int max)
+{
+	return rand_int(0,max);
 }
 
 double RandomUtil::rand_double(double min, double max)

@@ -28,7 +28,7 @@ vector<vector<double>> GaUtil::get_coeffs_from_best(vector<Organism>* organisms,
 {
     sort(organisms->begin(), organisms->end(), [](const auto& lhs, const auto& rhs)
         {
-            return lhs.time_alive < rhs.time_alive;
+            return lhs.time_alive > rhs.time_alive;
         });
     vector<vector<double>> best_coefs; best_coefs.reserve(total_count);
     for (size_t i = 0; i < total_count-no_random; i++)

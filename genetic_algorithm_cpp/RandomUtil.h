@@ -3,6 +3,8 @@
 #include <random>
 #include <map>
 #include <string>
+#include <algorithm>
+#include <iterator>
 using namespace std;
 class RandomUtil
 {
@@ -13,7 +15,7 @@ public:
 	/// Returns an array of given size containing uniform random numbers
 	//  In range[min_value, max_value)
 	/// </summary>
-	vector<double> get_random_array(int size, int min_value, int max_value);
+	vector<double> get_random_array(int size, double min_value, double max_value);
 	/// <summary>
 	/// Returns an array of given size containing uniform random integer numbers
 	//  In range[min_value, max_value)
@@ -28,14 +30,20 @@ public:
 	/// Returns a random alpha-numeric string of given length
 	/// </summary>
 	string rand_string(size_t size);
-	/// /// <summary>
+	/// <summary>
 	/// Produces a uniform random integer in range [lower_bound,upper_bound]
 	/// </summary>
 	int rand_int(int min, int max);
 	/// <summary>
+	/// Produces a uniform random integer in range [0,upper_bound]
+	/// </summary>
+	int rand_int(int max);
+	/// <summary>
 	/// Produces a uniform random double in range [lower_bound,upper_bound]
 	/// </summary>
 	double rand_double(double min, double max);
+	template <class t>
+	void random_shuffle(vector<t>& elements);
 private:
 	mt19937 mersenne_twister;
 	map<pair<int, int>,uniform_int_distribution<int>> integer_distributions;
@@ -56,3 +64,12 @@ private:
 	};
 };
 
+template<class t>
+inline void RandomUtil::random_shuffle(vector<t>& elements)
+{
+	for (int i = elements.size()-1; i > 0; i--)
+	{
+		int rand_pos = rand_int(i);
+		swap(elements[i], elements[rand_pos]);
+	}
+}
