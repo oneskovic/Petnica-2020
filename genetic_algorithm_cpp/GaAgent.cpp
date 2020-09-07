@@ -63,7 +63,12 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 
 			double avg_return = evaluate_ga(eval_blue_coeffs, eval_red_coeffs, &eval_env, display_moves,30);
 			returns.push_back(avg_return);
-			cout << "Generation " << gen_number << ":" << avg_return << "\n";
+			int max_time_alive = -1;
+			for (auto organism: prev_red_organisms)
+			{
+				max_time_alive = max(max_time_alive, organism.time_alive);
+			}
+			cout << "Generation " << gen_number << ":" << avg_return << " max time alive: " << max_time_alive <<"\n";
 
 			if (avg_return > max_avg_score)
 			{
@@ -119,6 +124,40 @@ vector<vector<double>> GaAgent::organisms_to_vector(vector<Organism>* organisms)
 	return organisms_vec;
 }
 
+void GaAgent::log_functions(vector<Organism>& red_organisms, vector<Organism>& blue_organisms)
+{
+	vector<vector<double>> organism_function_evaluations; 
+	organism_function_evaluations.reserve(blue_organisms.size());
+	for (size_t i = 0; i < blue_organisms.size(); i++)
+	{
+		vector<double> x = { 0 }; double step = 0.03;
+		vector<double> y_values; y_values.reserve(700);
+		while (x[0] <= 20)
+		{
+			double y = blue_organisms[i].compute_function_recursive(&x);
+			y_values.push_back(y);
+			x[0] += step;
+		}
+		organism_function_evaluations.push_back(y_values);
+	}
+	logger->log_to_file(organism_function_evaluations, "functions-blue.csv");
+	organism_function_evaluations.clear();
+	organism_function_evaluations.reserve(red_organisms.size());
+	for (size_t i = 0; i < red_organisms.size(); i++)
+	{
+		vector<double> x = { 0 }; double step = 0.03;
+		vector<double> y_values; y_values.reserve(700);
+		while (x[0] <= 20)
+		{
+			double y = red_organisms[i].compute_function_recursive(&x);
+			y_values.push_back(y);
+			x[0] += step;
+		}
+		organism_function_evaluations.push_back(y_values);
+	}
+	logger->log_to_file(organism_function_evaluations, "functions-red.csv");
+}
+
 double GaAgent::evaluate_ga(vector<vector<double>> blue_coeffs, vector<vector<double>> red_coeffs, GameEnv* eval_env, bool display_moves, int no_tests)
 {
 	if (display_moves)
@@ -126,6 +165,7 @@ double GaAgent::evaluate_ga(vector<vector<double>> blue_coeffs, vector<vector<do
 		string original_path = logger->get_base_path();
 		logger->change_base_path(original_path + "/episodes/" + to_string(exported_episode_count));
 		auto time_step = eval_env->reset();
+		log_functions(eval_env->red_organisms, eval_env->blue_organisms);
 		int episode_count = 0;
 		while (!time_step.is_last())
 		{

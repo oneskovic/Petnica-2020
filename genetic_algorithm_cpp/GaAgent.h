@@ -21,6 +21,7 @@ private:
 	bool should_log = false;
 	RandomUtil random_util = RandomUtil(0);
 	vector<vector<double>> organisms_to_vector(vector<Organism>* organisms);
+	void log_functions(vector<Organism>& red_organisms, vector<Organism>& blue_organisms);
 public:	
 	double evaluate_ga(vector<vector<double>> blue_coeffs, vector<vector<double>> red_coeffs, GameEnv* eval_env, bool display_moves = false, int no_tests = 10);
 };
