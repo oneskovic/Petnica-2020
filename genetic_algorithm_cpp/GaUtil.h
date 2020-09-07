@@ -7,6 +7,7 @@ template<typename t>
 class TSDeque
 {
 public:
+	void clear();
 	TSDeque();
 	void push_back(const t& element);
 	t pop_front();
@@ -36,6 +37,14 @@ private:
 	int coefficients_count = 0;
 	bool compare_organisms(Organism organism1, Organism organism2);
 };
+
+template<typename t>
+inline void TSDeque<t>::clear()
+{
+	mtx.lock();
+	elements.clear();
+	mtx.unlock();
+}
 
 template<typename t>
 inline TSDeque<t>::TSDeque()

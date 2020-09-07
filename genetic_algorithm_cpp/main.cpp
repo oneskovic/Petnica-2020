@@ -20,7 +20,7 @@ int main()
 		{"mutation_factor_max_final",0},
 		{"mutation_factor_anneal_time",2000},
 		{"no_best",8},
-		{"no_generations",10}
+		{"no_generations",30}
 	};
 
 	unordered_map<string, double> game_params =

@@ -68,22 +68,40 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		vector<thread> worker_threads(no_threads);
 		for (size_t i = 0; i < no_threads; i++)
 		{
-			worker_threads[i] = thread(&GaAgent::evaluate_training_classes, this, ref(training_classes), ref(evaluated_classes), 30);
+			worker_threads[i] = thread(&GaAgent::evaluate_training_classes, this, ref(training_classes), ref(evaluated_classes), 10);
 		}
 		for (size_t i = 0; i < no_threads; i++)
 		{
 			worker_threads[i].join();
+			worker_threads[i].~thread();
 		}
+
 		auto evaluated = evaluated_classes.to_vector();
 		sort(evaluated.begin(), evaluated.end());
+		evaluated_classes.clear();
+
 		cout << evaluated[0].score << "\n";
 		returns.push_back(evaluated[0].score);
+
+		//Pick pairs to reproduce
+		/*vector<int> possible_positions(class_count);
+		vector<double> scores(class_count);
 		for (size_t i = 0; i < class_count; i++)
 		{
-			int pos1 = random_util.rand_int(0, best_classes - 1);
-			int pos2 = random_util.rand_int(0, best_classes - 1);
+			possible_positions[i] = i;
+			scores[i] = evaluated[i].score;
+		}
+		vector<int> reproduction_pairs = 
+			random_util.random_choices(possible_positions, scores, class_count * 2);*/
+
+		for (size_t i = 0; i < class_count; i++)
+		{
+			int pos1 = random_util.rand_int(best_classes - 1);
+			int pos2 = random_util.rand_int(best_classes - 1);
 			while (pos2 == pos1)
-				pos2 = random_util.rand_int(0, best_classes - 1);
+			{
+				pos2 = random_util.rand_int(best_classes - 1);
+			}
 			training_classes.push_back(combine_classes(evaluated[pos1], evaluated[pos2]));
 		}
 		
@@ -181,10 +199,13 @@ void GaAgent::evaluate_training_classes(TSDeque<training_class>& training_classe
 
 GaAgent::training_class GaAgent::combine_classes(training_class& tc1, training_class& tc2)
 {
+	// Shuffle randomly to ensure fairness
 	random_util.random_shuffle(tc1.blue_genomes);
 	random_util.random_shuffle(tc1.red_genomes);
 	random_util.random_shuffle(tc2.blue_genomes);
 	random_util.random_shuffle(tc2.red_genomes);
+
+	// Crossover parents
 	int no_genomes = tc1.blue_genomes.size();
 	vector<vector<double>> blue_genomes; blue_genomes.reserve(no_genomes);
 	blue_genomes.insert(blue_genomes.end(), tc1.blue_genomes.begin(), tc1.blue_genomes.begin() + no_genomes/2);
@@ -194,6 +215,22 @@ GaAgent::training_class GaAgent::combine_classes(training_class& tc1, training_c
 	vector<vector<double>> red_genomes; red_genomes.reserve(no_genomes);
 	red_genomes.insert(red_genomes.end(), tc1.red_genomes.begin(), tc1.red_genomes.begin() + no_genomes/2);
 	red_genomes.insert(red_genomes.end(), tc2.red_genomes.begin(), tc2.red_genomes.begin() + no_genomes/2);
+
+	// Mutate child
+	vector<vector<double>> mutation_vec =
+		random_util.rand_matrix_double(blue_genomes.size(), blue_genomes[0].size(), -0.2, 0.2);
+	for (size_t row = 0; row < blue_genomes.size(); row++)
+	{
+		for (size_t col = 0; col < blue_genomes[0].size(); col++)
+			blue_genomes[row][col] += blue_genomes[row][col] * mutation_vec[row][col];
+	}
+
+	mutation_vec = random_util.rand_matrix_double(red_genomes.size(), red_genomes[0].size(), -0.2, 0.2);
+	for (size_t row = 0; row < red_genomes.size(); row++)
+	{
+		for (size_t col = 0; col < red_genomes[0].size(); col++)
+			red_genomes[row][col] += red_genomes[row][col] * mutation_vec[row][col];
+	}
 
 	training_class combined =
 	{

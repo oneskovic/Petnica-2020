@@ -1,5 +1,6 @@
 #pragma once
 #include "GaUtil.h"
+#include "RandomUtil.h"
 #include "Logger.h"
 #include <unordered_map>
 #include <string>

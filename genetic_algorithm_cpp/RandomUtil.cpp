@@ -28,7 +28,7 @@ vector<int> RandomUtil::get_random_array_discrete(int size, int min_value, int m
 	return rand_array;
 }
 
-vector<vector<double>> RandomUtil::rand_matrix_double(int no_rows, int no_columns, int min_value, int max_value)
+vector<vector<double>> RandomUtil::rand_matrix_double(int no_rows, int no_columns, double min_value, double max_value)
 {
 	vector<vector<double>> rand_matrix = vector<vector<double>>(no_rows);
 	for (size_t i = 0; i < no_rows; i++)
