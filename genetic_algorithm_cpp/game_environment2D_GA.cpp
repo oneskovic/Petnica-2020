@@ -11,12 +11,12 @@ TimeStep::TimeStep(string type, double reward)
     this->reward = reward;
 }
 
-double Organism::compute_function_recursive(vector<double>* parameters)
+double Organism::compute_function_recursive(vector<double>* parameters) const
 {
     auto times_used = vector<int>(parameters->size(), 0);
     //auto available_coefs = deque<double>(coefficients.begin(), coefficients.end());
     int coef_pos = 0;
-    return eval_function(parameters, &times_used, 0, polynomial_max_degree, &coef_pos, &coefficients);
+    return eval_function(parameters, &times_used, 0, polynomial_max_degree, &coef_pos, coefficients);
 }
 
 Organism::Organism(int x_position, int y_position, int energy, int type, int time_to_reproduce, int polynomial_degree, vector<double> coefficients)
@@ -43,7 +43,7 @@ vector<double> Organism::to_vector(bool include_coefs)
     return organism_vec;
 }
 
-double Organism::multiply_params(vector<double>* parameters, vector<int>* times_used)
+double Organism::multiply_params(vector<double>* parameters, vector<int>* times_used) const
 {
     double result = 1;
     for (int i = 0; i < parameters->size(); i++)
@@ -52,12 +52,12 @@ double Organism::multiply_params(vector<double>* parameters, vector<int>* times_
     return result;
 }
 
-double Organism::sigmoid(double value)
+double Organism::sigmoid(double value) const
 {
     return 1.0 / (1 + exp(-0.1*value));
 }
 
-double Organism::eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree, int* available_coef_pos, vector<double>* coefs)
+double Organism::eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree, int* available_coef_pos, const vector<double>& coefs) const
 {
     /* Each recursive call will compute the sum of all parameter combinations
 	where each parameter is used max_degree times.Each call returns the sum of
@@ -65,7 +65,7 @@ double Organism::eval_function(vector<double>* parameters, vector<int>* times_us
 	the prefix is the first 3 parameters */
     if (position >= parameters->size())
     {
-        double coef = coefs->at(*available_coef_pos);
+        double coef = coefs[*available_coef_pos];
         (*available_coef_pos)++;
         return sigmoid(multiply_params(parameters, times_used) * coef);
     }
@@ -201,9 +201,21 @@ TimeStep GameEnv::step()
     {
         episode_ended = true;
         if (blue_organisms.size() == 0)
+        {
+            for (size_t i = 0; i < red_organisms.size(); i++)
+            {
+                red_organisms[i].time_alive += red_organisms[i].energy;
+            }
             dead_red_organisms.insert(dead_red_organisms.end(), red_organisms.begin(), red_organisms.end());
+        }
         if (red_organisms.size() == 0)
+        {
+            for (size_t i = 0; i < blue_organisms.size(); i++)
+            {
+                blue_organisms[i].time_alive += blue_organisms[i].energy;
+            }
             dead_blue_organisms.insert(dead_blue_organisms.end(), blue_organisms.begin(), blue_organisms.end());
+        }
     }
     else
         current_move_number++;
@@ -294,41 +306,37 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
     if (other_organisms->size() == 0)
         return { max_value, 0 };
 
-    // Find the organism that maximises the function
-    for (int i = 0; i < other_organisms->size(); i++)
-    {
-        auto other_organism = &other_organisms->at(i);
-        if (other_organism->id == organism->id)
-            continue;
-        
-        double distance = get_distance(organism, other_organism);
-        vector<double> parameters = { distance };
-        double function_value = organism->compute_function_recursive(&parameters);
-        if (function_value > max_value)
-        {
-            max_value = function_value;
-            max_value_organism = other_organism;
-        }
-    }
-    double best_distance = get_distance(organism, max_value_organism);
     int best_action = 0;
     vector<int> possible_actions = { 0,1,2,3 };
     int start_x = organism->x_pos;
     int start_y = organism->y_pos;
 
-    for (int action: possible_actions)
+    for (int action : possible_actions)
     {
         move_organism(organism, action);
-        double distance = get_distance(organism, max_value_organism);
-        if (distance <= best_distance && organism->type >= max_value_organism->type)
+        double current_value = 0;
+        for (int i = 0; i < other_organisms->size(); i++)
         {
-            best_action = action;
-            best_distance = distance;
+            auto other_organism = &other_organisms->at(i);
+            if (other_organism->id == organism->id)
+                continue;
+
+            double distance = get_distance(organism, other_organism);
+            double is_predator_relative = 0;
+            if (other_organism->type > organism->type)
+            {
+                is_predator_relative = 1;
+            }
+            else
+                is_predator_relative = -1;
+            vector<double> parameters = { distance, is_predator_relative };
+            double function_value = organism->compute_function_recursive(&parameters);
+            current_value += function_value;
         }
-        if (distance >= best_distance && organism->type <= max_value_organism->type)
+        if (current_value > max_value)
         {
             best_action = action;
-            best_distance = distance;
+            max_value = current_value;
         }
         organism->x_pos = start_x;
         organism->y_pos = start_y;
