@@ -141,8 +141,15 @@ class GameEnv(py_environment.PyEnvironment):
     return organism_array
 
   def __get_distance(self, organism1, organism2):
-    dx = organism1.x_pos - organism2.x_pos
-    dy = organism1.y_pos - organism2.y_pos
+    dx = abs(organism1.x_pos - organism2.x_pos)
+    dy = abs(organism1.y_pos - organism2.y_pos)
+    
+    if dx > self.board_length/2:
+      dx = self.board_length - dx
+
+    if dy > self.board_length/2:
+      dy = self.board_length - dy
+    
     return abs(dx)+abs(dy)
 
   # Sorts organisms by their distance from target_organism
