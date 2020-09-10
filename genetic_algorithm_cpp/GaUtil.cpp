@@ -24,20 +24,22 @@ vector<double> GaUtil::combine_organisms(Organism* organism1, Organism* organism
     return child_coefs;
 }
 
-vector<vector<double>> GaUtil::get_coeffs_from_best(vector<Organism>* organisms, int total_count, int no_best, int no_random, vector<double> mutation_factor_range)
+vector<vector<double>> GaUtil::get_coeffs_from_best(vector<Organism>* organisms, int total_count, int no_random, vector<double> mutation_factor_range)
 {
-    sort(organisms->begin(), organisms->end(), [](const auto& lhs, const auto& rhs)
-        {
-            return lhs.time_alive < rhs.time_alive;
-        });
     vector<vector<double>> best_coefs; best_coefs.reserve(total_count);
-    for (size_t i = 0; i < total_count-no_random; i++)
+    vector<int> positions(organisms->size());
+    vector<double> scores(organisms->size());
+    for (size_t i = 0; i < organisms->size(); i++)
     {
-        int pos1 = rand_util->rand_int(0, no_best-1);
-        int pos2 = rand_util->rand_int(0, no_best-1);
-        //Temporary fix
-        while (pos2 == pos1)
-            pos2 = rand_util->rand_int(0, no_best-1);
+        positions[i] = i;
+        scores[i] = organisms->at(i).time_alive;
+    }
+    vector<int> parent_pairs = rand_util->random_choices(positions, scores, 2 * total_count);
+
+    for (size_t i = 0; i < 2 * total_count; i+=2)
+    {
+        int pos1 = parent_pairs[i];
+        int pos2 = parent_pairs[i + 1];
         best_coefs.push_back(combine_organisms(&organisms->at(pos1), &organisms->at(pos2), mutation_factor_range));
     }
     for (size_t i = 0; i < no_random; i++)

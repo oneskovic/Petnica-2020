@@ -21,16 +21,16 @@ public:
 class Organism
 {
 public:
-	double compute_function_recursive(vector<double>* parameters);
+	double compute_function_recursive(vector<double>* parameters) const;
 	Organism(int x_position, int y_position, int energy, int type, int time_to_reproduce, int polynomial_degree = 0, vector<double> coefficients = vector<double>());
 	vector<double> to_vector(bool include_coefs = false);
 	int time_alive, x_pos, y_pos, id, type, time_to_reproduce, polynomial_max_degree;
 	double energy;
 	vector<double> coefficients;
 private:
-	double multiply_params(vector<double>* parameters, vector<int>* times_used);
-	double sigmoid(double value);
-	double eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree,int* available_coef_pos, vector<double>* coefs);
+	double multiply_params(vector<double>* parameters, vector<int>* times_used) const;
+	double sigmoid(double value) const;
+	double eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree,int* available_coef_pos, const vector<double>& coefs) const;
 
 };
 class GameEnv

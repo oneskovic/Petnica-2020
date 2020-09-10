@@ -20,6 +20,10 @@ private:
 	bool display_moves = false;
 	bool should_log = false;
 	RandomUtil random_util = RandomUtil(0);
+	/// <summary>
+	/// Evaluates functions for all organisms for various inputs and logs results to the given file
+	/// </summary>
+	void evaluate_functions(const vector<Organism>& organisms, string file_name);
 	vector<vector<double>> organisms_to_vector(vector<Organism>* organisms);
 	void log_functions(vector<Organism>& red_organisms, vector<Organism>& blue_organisms);
 public:	

@@ -47,6 +47,7 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	vector<Organism> prev_blue_organisms, prev_red_organisms;
 	for (int gen_number = 0; gen_number < hparams["no_generations"]; gen_number++)
 	{
+		std::cout << "\r Generation: " << gen_number << "                                    ";
 		if (gen_number > 0)
 		{
 			prev_blue_organisms = vector<Organism>(env.dead_blue_organisms.begin(),env.dead_blue_organisms.end());
@@ -57,8 +58,8 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		// Evaluate the GA
 		if (eval_interval > 0 && (gen_number+1)%eval_interval == 0)
 		{
-			auto eval_blue_coeffs = ga_util.get_coeffs_from_best(&prev_blue_organisms, eval_game_params["no_blue_organisms"], eval_game_params["no_blue_organisms"], 0, { 0,0 });
-			auto eval_red_coeffs = ga_util.get_coeffs_from_best(&prev_red_organisms, eval_game_params["no_red_organisms"], eval_game_params["no_red_organisms"], 0, { 0,0 });
+			auto eval_blue_coeffs = ga_util.get_coeffs_from_best(&prev_blue_organisms, eval_game_params["no_blue_organisms"], 0, { 0,0 });
+			auto eval_red_coeffs = ga_util.get_coeffs_from_best(&prev_red_organisms, eval_game_params["no_red_organisms"], 0, { 0,0 });
 			GameEnv eval_env = GameEnv(eval_blue_coeffs, eval_red_coeffs, max_degree, &this->random_util, eval_game_params["food_count"], eval_game_params["board_size"]);
 
 			double avg_return = evaluate_ga(eval_blue_coeffs, eval_red_coeffs, &eval_env, display_moves,30);
@@ -68,7 +69,7 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 			{
 				max_time_alive = max(max_time_alive, organism.time_alive);
 			}
-			cout << "Generation " << gen_number << ":" << avg_return << " max time alive: " << max_time_alive <<"\n";
+			cout << "\nGeneration " << gen_number << ":" << avg_return << " max time alive: " << max_time_alive <<"\n";
 
 			if (avg_return > max_avg_score)
 			{
@@ -89,8 +90,8 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		auto blue_organisms = vector<Organism>(env.dead_blue_organisms.begin(), env.dead_blue_organisms.end());
 		auto red_organisms = vector<Organism>(env.dead_red_organisms.begin(), env.dead_red_organisms.end());
 		vector<double> mutation_factor_range = { mutation_factor_min,mutation_factor_max };
-		blue_coeffs = ga_util.get_coeffs_from_best(&blue_organisms, no_blues, hparams["no_best"], round(no_random), mutation_factor_range);
-		red_coeffs = ga_util.get_coeffs_from_best(&red_organisms, no_reds, hparams["no_best"], round(no_random), mutation_factor_range);
+		blue_coeffs = ga_util.get_coeffs_from_best(&blue_organisms, no_blues, round(no_random), mutation_factor_range);
+		red_coeffs = ga_util.get_coeffs_from_best(&red_organisms, no_reds,  round(no_random), mutation_factor_range);
 
 		no_random = max(hparams["no_random_final"],no_random+random_step);
 		mutation_factor_min = min(mutation_factor_min_final, mutation_factor_min+mutation_factor_min_step);
@@ -116,6 +117,30 @@ void GaAgent::set_random_seed(size_t seed)
 	srand(seed);
 }
 
+void GaAgent::evaluate_functions(const vector<Organism>& organisms, string file_name)
+{
+	vector<vector<double>> organism_function_evaluations;
+	vector<int>second_args = { -1,1 };
+	for (int second_arg : second_args)
+	{
+		organism_function_evaluations.clear();
+		organism_function_evaluations.reserve(organisms.size());
+		for (size_t i = 0; i < organisms.size(); i++)
+		{
+			vector<double> x = { 0, (double)second_arg }; double step = 0.03;
+			vector<double> y_values; y_values.reserve(700);
+			while (x[0] <= 20)
+			{
+				double y = organisms[i].compute_function_recursive(&x);
+				y_values.push_back(y);
+				x[0] += step;
+			}
+			organism_function_evaluations.push_back(y_values);
+		}
+		logger->log_to_file(organism_function_evaluations, file_name + to_string(second_arg) + ".csv");
+	}
+}
+
 vector<vector<double>> GaAgent::organisms_to_vector(vector<Organism>* organisms)
 {
 	vector<vector<double>> organisms_vec; organisms_vec.reserve(organisms->size());
@@ -126,36 +151,8 @@ vector<vector<double>> GaAgent::organisms_to_vector(vector<Organism>* organisms)
 
 void GaAgent::log_functions(vector<Organism>& red_organisms, vector<Organism>& blue_organisms)
 {
-	vector<vector<double>> organism_function_evaluations; 
-	organism_function_evaluations.reserve(blue_organisms.size());
-	for (size_t i = 0; i < blue_organisms.size(); i++)
-	{
-		vector<double> x = { 0 }; double step = 0.03;
-		vector<double> y_values; y_values.reserve(700);
-		while (x[0] <= 20)
-		{
-			double y = blue_organisms[i].compute_function_recursive(&x);
-			y_values.push_back(y);
-			x[0] += step;
-		}
-		organism_function_evaluations.push_back(y_values);
-	}
-	logger->log_to_file(organism_function_evaluations, "functions-blue.csv");
-	organism_function_evaluations.clear();
-	organism_function_evaluations.reserve(red_organisms.size());
-	for (size_t i = 0; i < red_organisms.size(); i++)
-	{
-		vector<double> x = { 0 }; double step = 0.03;
-		vector<double> y_values; y_values.reserve(700);
-		while (x[0] <= 20)
-		{
-			double y = red_organisms[i].compute_function_recursive(&x);
-			y_values.push_back(y);
-			x[0] += step;
-		}
-		organism_function_evaluations.push_back(y_values);
-	}
-	logger->log_to_file(organism_function_evaluations, "functions-red.csv");
+	evaluate_functions(red_organisms, "red-organisms");
+	evaluate_functions(blue_organisms, "blue-organisms");
 }
 
 double GaAgent::evaluate_ga(vector<vector<double>> blue_coeffs, vector<vector<double>> red_coeffs, GameEnv* eval_env, bool display_moves, int no_tests)

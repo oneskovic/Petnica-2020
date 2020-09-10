@@ -191,55 +191,20 @@ class GameEnv(py_environment.PyEnvironment):
     #state += self.organisms_to_array(ordered_greens, self.input_layer_count/3)
     return state
 
-  def _reset(self):
-    self._episode_ended = False
-
-    self.blue_organisms = []
-    for _ in range(self.blue_organisms_start_count):
-        x_pos = np.random.randint(0,self.board_length)
-        y_pos = np.random.randint(0,self.board_length)
-        self.blue_organisms.append(Organism(x_pos,y_pos,self.start_hp,1,self.reproduction_cooldown))
-    
-    self.red_organisms = []
-    for _ in range(self.red_organisms_start_count):
-        x_pos = np.random.randint(0,self.board_length)
-        y_pos = np.random.randint(0,self.board_length)
-        self.red_organisms.append(Organism(x_pos,y_pos,self.start_hp,2,self.reproduction_cooldown))
-
-    self.green_organisms = []
-    # Generate food
-    for _ in range(self.board_food_count):
-        x_pos = np.random.randint(0,self.board_length)
-        y_pos = np.random.randint(0,self.board_length)
-
-        self.green_organisms.append(Organism(x_pos,y_pos,self.food_energy,0,0))
-        
-    self.organisms_to_move = deepcopy(self.blue_organisms)
-    self.player_to_move = 'Blue'
-    self.current_move_number = 0
-
-    self._state = self.__get_current_game_state()
-    self.most_recent_frames.clear()
-    for _ in range(4):
-      self.most_recent_frames.append(self._state)
-
-    reshaped = self.reshape_observation(self.most_recent_frames)
-    return ts.restart(np.array(reshaped, dtype=np.int32))
-
   def __update_organism_position(self, organism, action):
-        organism_copy = deepcopy(organism)
-        # Process organism's action
-        if action == 0:
-            organism_copy.x_pos = (organism.x_pos-1+self.board_length)%self.board_length
-        elif action == 1:
-            organism_copy.x_pos = (organism.x_pos+1)%self.board_length
-        elif action == 2:
-            organism_copy.y_pos = (organism.y_pos+1)%self.board_length
-        elif action == 3:
-            organism_copy.y_pos = (organism.y_pos-1+self.board_length)%self.board_length
-        else:
-            raise ValueError('`action` should be in range [0,3].')
-        return organism_copy
+      organism_copy = deepcopy(organism)
+      # Process organism's action
+      if action == 0:
+          organism_copy.x_pos = (organism.x_pos-1+self.board_length)%self.board_length
+      elif action == 1:
+          organism_copy.x_pos = (organism.x_pos+1)%self.board_length
+      elif action == 2:
+          organism_copy.y_pos = (organism.y_pos+1)%self.board_length
+      elif action == 3:
+          organism_copy.y_pos = (organism.y_pos-1+self.board_length)%self.board_length
+      else:
+          raise ValueError('`action` should be in range [0,3].')
+      return organism_copy
     
   def __move_organism(self, action, other_player, current_organisms, other_organisms):
       i = 0
@@ -291,7 +256,41 @@ class GameEnv(py_environment.PyEnvironment):
             new_organism = Organism(organisms[i].x_pos,organisms[j].y_pos,
                             energy,organisms[i].type,self.reproduction_cooldown)
             organisms.append(new_organism)
-  
+
+  def _reset(self):
+    self._episode_ended = False
+
+    self.blue_organisms = []
+    for _ in range(self.blue_organisms_start_count):
+        x_pos = np.random.randint(0,self.board_length)
+        y_pos = np.random.randint(0,self.board_length)
+        self.blue_organisms.append(Organism(x_pos,y_pos,self.start_hp,1,self.reproduction_cooldown))
+    
+    self.red_organisms = []
+    for _ in range(self.red_organisms_start_count):
+        x_pos = np.random.randint(0,self.board_length)
+        y_pos = np.random.randint(0,self.board_length)
+        self.red_organisms.append(Organism(x_pos,y_pos,self.start_hp,2,self.reproduction_cooldown))
+
+    self.green_organisms = []
+    # Generate food
+    for _ in range(self.board_food_count):
+        x_pos = np.random.randint(0,self.board_length)
+        y_pos = np.random.randint(0,self.board_length)
+
+        self.green_organisms.append(Organism(x_pos,y_pos,self.food_energy,0,0))
+        
+    self.organisms_to_move = deepcopy(self.blue_organisms)
+    self.player_to_move = 'Blue'
+    self.current_move_number = 0
+
+    self._state = self.__get_current_game_state()
+    self.most_recent_frames.clear()
+    for _ in range(4):
+      self.most_recent_frames.append(self._state)
+
+    reshaped = self.reshape_observation(self.most_recent_frames)
+    return ts.restart(np.array(reshaped, dtype=np.int32))  
   
   def _step(self, action):
     reward = 1
