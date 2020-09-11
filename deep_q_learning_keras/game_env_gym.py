@@ -24,14 +24,12 @@ class Organism:
       self.id = np.random.randint(-100000000,100000000)
 
     def to_list(self):
-      return [self.x_pos,self.y_pos,self.energy,self.time_to_reproduce,self.type]
+      return np.array([self.x_pos, self.y_pos, self.energy, self.type+1],dtype=np.float32)  
+      #return [self.x_pos,self.y_pos,self.energy,self.time_to_reproduce,self.type]
 
 
 class GameEnv(gym.Env):
     metadata = {'render.modes': ['console']}
-    # Define constants for clearer code
-    LEFT = 0
-    RIGHT = 1
     # Lists containing the currently alive organisms
     blue_organisms = []
     red_organisms = []
@@ -45,20 +43,19 @@ class GameEnv(gym.Env):
     board_food_count = 10 # The number of green organisms always present on the board
     blue_organisms_start_count = 10
     red_organisms_start_count = 10
-    #input_layer_count = 15
+    #input_layer_count = 6
     reproduction_cooldown = 3
 
     organisms_to_move = []
     player_to_move = 'Red'
 
     def __init__(self, grid_size=10):
+        self.board_length = grid_size
         super(GameEnv, self).__init__()    
 
         self.action_space = spaces.Discrete(4)
-        # The observation will be the coordinate of the agent
-        # this can be described both by Discrete and Box space
-        self.observation_space = spaces.Box(low=-1, high=20,
-                                            shape=(self.board_length,self.board_length,3), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-1, high=1000,
+                                            shape=(self.board_length,self.board_length,4), dtype=np.float32)
 
         self._episode_ended = False
 
@@ -84,7 +81,6 @@ class GameEnv(gym.Env):
 
             self.green_organisms.append(Organism(x_pos,y_pos,self.food_energy,0,0))
 
-        #self.organism_to_move = self.blue_organisms[0]
         self.organisms_to_move = deepcopy(self.blue_organisms)
         self.player_to_move = 'Blue'
         self.current_move_number = 0
@@ -104,22 +100,30 @@ class GameEnv(gym.Env):
         return reshaped
 
     def organisms_to_array(self, organisms_list, required_count):
-        organism_array = []
+        required_count = int(required_count)
+        organism_array = np.zeros((required_count,4))
         # Filter out the organism that should move next (appended to the front)
         #organisms_list = [organism for organism in organisms_list if organism.id != self.organism_to_move.id]
         
         # Attempt to add the required_count of organisms
         for i in range(int(min(required_count,len(organisms_list)))):
-            organism_array += organisms_list[i].to_list()
+            organism_array[i] = organisms_list[i].to_list()
         
         # If the required_count has not been reached fill the rest with 0 elements
-        for _ in range(int(max(0,required_count - len(organisms_list)))):
-            organism_array += [0]*5
+        # for _ in range(int(max(0,required_count - len(organisms_list)))):
+        #     organism_array[i]= [0]*5
         return organism_array
 
     def __get_distance(self, organism1, organism2):
-        dx = organism1.x_pos - organism2.x_pos
-        dy = organism1.y_pos - organism2.y_pos
+        dx = abs(organism1.x_pos - organism2.x_pos)
+        dy = abs(organism1.y_pos - organism2.y_pos)
+    
+        if dx > self.board_length/2:
+            dx = self.board_length - dx
+
+        if dy > self.board_length/2:
+            dy = self.board_length - dy
+    
         return abs(dx)+abs(dy)
 
     # Sorts organisms by their distance from target_organism
@@ -127,9 +131,10 @@ class GameEnv(gym.Env):
         distance_dict = {}
         # Should append to list not overwrite
         for organism in organisms:
-            # Dirty, temporary fix
-            noise = np.random.uniform(0.0000000001,0.00001)
-            distance_dict[self.__get_distance(organism, target_organism)+noise] = organism
+            if organism.id != target_organism.id:
+                # Dirty, temporary fix
+                noise = np.random.uniform(0.0000000001,0.00001)
+                distance_dict[self.__get_distance(organism, target_organism)+noise] = organism
             
         ordered_organisms = []
         for distance in sorted(distance_dict.keys()):
@@ -140,29 +145,52 @@ class GameEnv(gym.Env):
         
     def __get_current_game_state(self):
         # Initialize the state array
-        state = np.zeros((self.board_length,self.board_length,3))
+        state = np.zeros((self.board_length,self.board_length,4))
         
         for organism in self.green_organisms:
             state[organism.y_pos][organism.x_pos][0] = 1
             state[organism.y_pos][organism.x_pos][1] = self.food_energy
-            state[organism.y_pos][organism.x_pos][2] = 0 
+            state[organism.y_pos][organism.x_pos][2] = -1
+            state[organism.y_pos][organism.x_pos][3] = 0 
         for organism in self.blue_organisms:
             state[organism.y_pos][organism.x_pos][0] = 2
             state[organism.y_pos][organism.x_pos][1] = organism.energy
-            state[organism.y_pos][organism.x_pos][2] = 0 
+            state[organism.y_pos][organism.x_pos][2] = organism.time_to_reproduce
+            state[organism.y_pos][organism.x_pos][3] = 0 
         for organism in self.red_organisms:
             state[organism.y_pos][organism.x_pos][0] = 3
             state[organism.y_pos][organism.x_pos][1] = organism.energy
-            state[organism.y_pos][organism.x_pos][2] = 0
+            state[organism.y_pos][organism.x_pos][2] = organism.time_to_reproduce
+            state[organism.y_pos][organism.x_pos][3] = 0
         
         organism_to_move = self.organisms_to_move[0]
-        state[organism_to_move.y_pos][organism_to_move.x_pos][0] = organism_to_move.type+1
+        state[organism_to_move.y_pos][organism_to_move.x_pos][0] = organism_to_move.type
         state[organism_to_move.y_pos][organism_to_move.x_pos][1] = organism_to_move.energy
-        state[organism_to_move.y_pos][organism_to_move.x_pos][2] = 1
-                
-        #state += self.organisms_to_move[0].to_list() # Append the organism that should move to the front
+        state[organism_to_move.y_pos][organism_to_move.x_pos][2] = organism_to_move.time_to_reproduce
+        state[organism_to_move.y_pos][organism_to_move.x_pos][3] = 1
         
-        #ordered_blues = self.__sort_organisms_by_distance(self.blue_organisms,self.organism_to_move)
+        # organism_to_move = self.organisms_to_move[0]
+        # state[0] = organism_to_move.to_list() # Append the organism that should move to the front
+        # state_index = 1
+        
+        # ordered_reds = self.__sort_organisms_by_distance(self.red_organisms,organism_to_move)
+        # closest_reds = self.organisms_to_array(ordered_reds, self.input_layer_count/3)
+        # for i in range(len(closest_reds)):
+        #     state[state_index] = closest_reds[i]
+        #     state_index += 1
+        
+        # ordered_blues = self.__sort_organisms_by_distance(self.blue_organisms,organism_to_move)
+        # closest_blues = self.organisms_to_array(ordered_blues, self.input_layer_count/3)
+        # for i in range(len(closest_blues)):
+        #     state[state_index] = closest_blues[i]
+        #     state_index += 1
+            
+        # ordered_greens = self.__sort_organisms_by_distance(self.green_organisms,organism_to_move)
+        # closest_greens = self.organisms_to_array(ordered_greens, self.input_layer_count/3)
+        # for i in range(len(closest_greens)):
+        #     state[state_index] = closest_greens[i]
+        #     state_index += 1
+            
         #state += self.organisms_to_array(ordered_blues, self.input_layer_count/3)
         #ordered_reds = self.__sort_organisms_by_distance(self.red_organisms,self.organism_to_move)
         #state += self.organisms_to_array(ordered_reds,  self.input_layer_count/3)
@@ -264,7 +292,7 @@ class GameEnv(gym.Env):
 
         self._state = self.__get_current_game_state()
 
-        return np.array(self._state).astype(np.float32)
+        return self._state
 
     def step(self, action):
         reward = 1
@@ -289,7 +317,8 @@ class GameEnv(gym.Env):
         # Make sure episodes don't go on forever.
         if self.current_move_number >= self.max_moves or len(self.blue_organisms) == 0 or len(self.red_organisms) == 0:
             self._episode_ended = True
-            #reward = -20
+            # if len(self.blue_organisms) == 0 or len(self.red_organisms) == 0:
+            #     reward = -200
         else:    
             self.__consume_prey(self.blue_organisms,self.green_organisms)
             self.__consume_prey(self.red_organisms,self.blue_organisms)
@@ -314,7 +343,7 @@ class GameEnv(gym.Env):
         # Optionally we can pass additional info, we are not using that for now
         info = {}
 
-        return np.array(self._state).astype(np.float32), reward, self._episode_ended, info
+        return self._state, reward, self._episode_ended, info
 
     def render(self, mode='console'):
         if mode != 'console':
