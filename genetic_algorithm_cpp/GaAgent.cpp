@@ -30,12 +30,11 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	auto red_coeffs = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);
 	
 	vector<double> returns;
+	vector<double> average_red_scores;
+	vector<double> average_blue_scores;
 	vector<vector<double>> best_genomes;
 	double max_avg_score = numeric_limits<double>::min();
 
-	double no_random = hparams["no_random_start"];
-	double random_step = (hparams["no_random_final"] - no_random) / hparams["no_random_anneal_time"];
-	
 	double mutation_factor_min = hparams["mutation_factor_min_start"];
 	double mutation_factor_max = hparams["mutation_factor_max_start"];
 	double mutation_factor_min_final = hparams["mutation_factor_min_final"];
@@ -45,6 +44,7 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 
 	GameEnv env = GameEnv(blue_coeffs, red_coeffs, max_degree, &this->random_util, hparams["food_count"], hparams["board_size"]);
 	vector<Organism> prev_blue_organisms, prev_red_organisms;
+
 	for (int gen_number = 0; gen_number < hparams["no_generations"]; gen_number++)
 	{
 		std::cout << "\r Generation: " << gen_number << "                                    ";
@@ -58,18 +58,27 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		// Evaluate the GA
 		if (eval_interval > 0 && (gen_number+1)%eval_interval == 0)
 		{
-			auto eval_blue_coeffs = ga_util.get_coeffs_from_best(&prev_blue_organisms, eval_game_params["no_blue_organisms"], 0, { 0,0 });
-			auto eval_red_coeffs = ga_util.get_coeffs_from_best(&prev_red_organisms, eval_game_params["no_red_organisms"], 0, { 0,0 });
+			auto eval_blue_coeffs = ga_util.get_coeffs_from_best(&prev_blue_organisms, eval_game_params["no_blue_organisms"], { 0,0 });
+			auto eval_red_coeffs = ga_util.get_coeffs_from_best(&prev_red_organisms, eval_game_params["no_red_organisms"], { 0,0 });
 			GameEnv eval_env = GameEnv(eval_blue_coeffs, eval_red_coeffs, max_degree, &this->random_util, eval_game_params["food_count"], eval_game_params["board_size"]);
 
 			double avg_return = evaluate_ga(eval_blue_coeffs, eval_red_coeffs, &eval_env, display_moves,30);
 			returns.push_back(avg_return);
-			int max_time_alive = -1;
-			for (auto organism: prev_red_organisms)
-			{
-				max_time_alive = max(max_time_alive, organism.time_alive);
-			}
-			cout << "\nGeneration " << gen_number << ":" << avg_return << " max time alive: " << max_time_alive <<"\n";
+			double blue_sum = 0;
+			for (auto organism : prev_blue_organisms)
+				blue_sum += organism.time_alive;
+
+			double red_sum = 0;
+			for (auto organism : prev_red_organisms)
+				red_sum += organism.time_alive;
+
+			average_blue_scores.push_back(blue_sum/prev_blue_organisms.size());
+			average_red_scores.push_back(red_sum/prev_red_organisms.size());
+
+			cout << "\nGeneration " << gen_number << 
+				": Blue score:"<< average_blue_scores.back() <<
+				" Red score:" << average_red_scores.back() <<
+				" Total score: " << avg_return  <<"\n";
 
 			if (avg_return > max_avg_score)
 			{
@@ -81,19 +90,62 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 			}
 		}
 		
-		auto time_step = env.reset();
-		while (!time_step.is_last())
+		vector<Organism> final_blue_organisms, final_red_organisms;
+		unordered_map<size_t, pair<Organism, int>> organisms_hashed;
+		vector<vector<double>> all_coefs = blue_coeffs;
+		all_coefs.insert(all_coefs.end(), red_coeffs.begin(), red_coeffs.end());
+		for (auto coefs: all_coefs)
 		{
-			time_step = env.step();
+			size_t organism_hash = 0;
+			for (size_t coef_pos = 0; coef_pos < coefs.size(); coef_pos++)
+				ga_util.hash_combine(organism_hash, coefs[coef_pos]);
+			organisms_hashed[organism_hash] = { Organism(),0 };
 		}
 
-		auto blue_organisms = vector<Organism>(env.dead_blue_organisms.begin(), env.dead_blue_organisms.end());
-		auto red_organisms = vector<Organism>(env.dead_red_organisms.begin(), env.dead_red_organisms.end());
-		vector<double> mutation_factor_range = { mutation_factor_min,mutation_factor_max };
-		blue_coeffs = ga_util.get_coeffs_from_best(&blue_organisms, no_blues, round(no_random), mutation_factor_range);
-		red_coeffs = ga_util.get_coeffs_from_best(&red_organisms, no_reds,  round(no_random), mutation_factor_range);
+		for (size_t i = 0; i < 20; i++)
+		{
+			auto time_step = env.reset();
+			while (!time_step.is_last())
+			{
+				time_step = env.step();
+			}
 
-		no_random = max(hparams["no_random_final"],no_random+random_step);
+			auto organisms = vector<Organism>(env.dead_blue_organisms.begin(), env.dead_blue_organisms.end());
+			organisms.insert(organisms.end(), env.dead_red_organisms.begin(), env.dead_red_organisms.end());
+
+			for (auto organism : organisms)
+			{
+				size_t organism_hash = 0;
+				for (size_t coef_pos = 0; coef_pos < organism.coefficients.size(); coef_pos++)
+					ga_util.hash_combine(organism_hash, organism.coefficients[coef_pos]);
+
+				if (organisms_hashed.find(organism_hash) != organisms_hashed.end())
+				{
+					int total_time_alive = organisms_hashed[organism_hash].first.time_alive + organism.time_alive;
+					organisms_hashed[organism_hash].first = organism;
+					organisms_hashed[organism_hash].first.time_alive = total_time_alive;
+					organisms_hashed[organism_hash].second++;
+				}				
+			}
+		}
+
+		for (auto kvp: organisms_hashed)
+		{
+			kvp.second.first.time_alive /= kvp.second.second;
+			if (kvp.second.first.type == 1)
+			{
+				final_blue_organisms.push_back(kvp.second.first);
+			}
+			else if (kvp.second.first.type == 2)
+			{
+				final_red_organisms.push_back(kvp.second.first);
+			}
+		}
+
+		vector<double> mutation_factor_range = { mutation_factor_min,mutation_factor_max };
+		blue_coeffs = ga_util.get_coeffs_from_best(&final_blue_organisms, no_blues, mutation_factor_range);
+		red_coeffs = ga_util.get_coeffs_from_best(&final_red_organisms, no_reds, mutation_factor_range);
+
 		mutation_factor_min = min(mutation_factor_min_final, mutation_factor_min+mutation_factor_min_step);
 		mutation_factor_max = max(mutation_factor_max_step, mutation_factor_max+mutation_factor_max_step);
 	}
@@ -101,6 +153,8 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	if (should_log)
 	{
 		logger->log_to_file(returns, "returns.csv");
+		logger->log_to_file(average_blue_scores, "best-blue-scores.csv");
+		logger->log_to_file(average_red_scores, "best-red-scores.csv");
 	}
 	return best_genomes;
 }
@@ -120,25 +174,26 @@ void GaAgent::set_random_seed(size_t seed)
 void GaAgent::evaluate_functions(const vector<Organism>& organisms, string file_name)
 {
 	vector<vector<double>> organism_function_evaluations;
-	vector<int>second_args = { -1,1 };
+	/*vector<int>second_args = { -1,1 };
 	for (int second_arg : second_args)
-	{
+	{*/
 		organism_function_evaluations.clear();
 		organism_function_evaluations.reserve(organisms.size());
 		for (size_t i = 0; i < organisms.size(); i++)
 		{
-			vector<double> x = { 0, (double)second_arg }; double step = 0.03;
 			vector<double> y_values; y_values.reserve(700);
-			while (x[0] <= 20)
+			int x = 0;
+			while (x <= 10)
 			{
-				double y = organisms[i].compute_function_recursive(&x);
+				vector<double> parameters = { (double)x };
+				double y = organisms[i].compute_function_recursive(&parameters);
 				y_values.push_back(y);
-				x[0] += step;
+				x++;
 			}
 			organism_function_evaluations.push_back(y_values);
 		}
-		logger->log_to_file(organism_function_evaluations, file_name + to_string(second_arg) + ".csv");
-	}
+		logger->log_to_file(organism_function_evaluations, file_name /*+ to_string(second_arg)*/ + ".csv");
+	//}
 }
 
 vector<vector<double>> GaAgent::organisms_to_vector(vector<Organism>* organisms)

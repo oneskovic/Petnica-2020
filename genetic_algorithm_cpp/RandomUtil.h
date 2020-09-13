@@ -16,7 +16,7 @@ public:
 	/// Returns an array of given size containing uniform random numbers
 	//  In range[min_value, max_value)
 	/// </summary>
-	vector<double> get_random_array(int size, double min_value, double max_value);
+	vector<double> get_random_array(int size, double min_value, double max_value, string distribution = "uniform");
 	/// <summary>
 	/// Returns an array of given size containing uniform random integer numbers
 	//  In range[min_value, max_value]
@@ -26,7 +26,7 @@ public:
 	/// Returns a matrix of given size containing uniform random numbers
 	/// In range [min_value, max_value)
 	/// </summary>
-	vector<vector<double>> rand_matrix_double(int no_rows, int no_columns, double min_value, double max_value);
+	vector<vector<double>> rand_matrix_double(int no_rows, int no_columns, double min_value, double max_value, string distribution = "uniform");
 	/// <summary>
 	/// Returns a random alpha-numeric string of given length
 	/// </summary>
@@ -44,6 +44,10 @@ public:
 	/// </summary>
 	double rand_double(double min, double max);
 	/// <summary>
+	/// Produces a random double from normal distribution in range [lower_bound,upper_bound)
+	/// </summary>
+	double rand_double_normal(double min, double max);
+	/// <summary>
 	/// Reorders the given vector randomly
 	/// </summary>
 	template <class t>
@@ -59,6 +63,7 @@ private:
 	mt19937 mersenne_twister;
 	map<pair<int, int>, uniform_int_distribution<int>> integer_distributions;
 	map<pair<double, double>, uniform_real_distribution<double>> real_distributions;
+	map<pair<double, double>, normal_distribution<double>> real_distributions_normal;
 	vector<char> char_set =
 	{ '0','1','2','3','4',
 	'5','6','7','8','9',

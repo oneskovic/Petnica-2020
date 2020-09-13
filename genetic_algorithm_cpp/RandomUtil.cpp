@@ -11,12 +11,22 @@ RandomUtil::RandomUtil()
 	mersenne_twister = mt19937(rand_device());
 }
 
-vector<double> RandomUtil::get_random_array(int size, double min_value, double max_value)
+vector<double> RandomUtil::get_random_array(int size, double min_value, double max_value, string distribution)
 {
 	vector<double> rand_array = vector<double>(size);
 	for (size_t i = 0; i < size; i++)
-		rand_array[i] = rand_double(min_value, max_value);
-
+	{
+		if (distribution == "uniform")
+		{
+			rand_array[i] = rand_double(min_value, max_value);
+		}
+		else if (distribution == "normal")
+		{
+			rand_array[i] = rand_double_normal(min_value, max_value);
+		}
+		else
+			throw exception(("Distribution " + distribution + " not implemented").c_str());
+	}
 	return rand_array;
 }
 
@@ -28,11 +38,11 @@ vector<int> RandomUtil::get_random_array_discrete(int size, int min_value, int m
 	return rand_array;
 }
 
-vector<vector<double>> RandomUtil::rand_matrix_double(int no_rows, int no_columns, double min_value, double max_value)
+vector<vector<double>> RandomUtil::rand_matrix_double(int no_rows, int no_columns, double min_value, double max_value, string distribution)
 {
 	vector<vector<double>> rand_matrix = vector<vector<double>>(no_rows);
 	for (size_t i = 0; i < no_rows; i++)
-		rand_matrix[i] = get_random_array(no_columns, min_value, max_value);
+		rand_matrix[i] = get_random_array(no_columns, min_value, max_value, distribution);
 	return rand_matrix;
 }
 
@@ -69,4 +79,15 @@ double RandomUtil::rand_double(double min, double max)
 		real_distributions[interval] = std::uniform_real_distribution<double>(min, max);
 	}
 	return real_distributions[interval](mersenne_twister);
+}
+
+double RandomUtil::rand_double_normal(double min, double max)
+{
+	std::pair<double, double> interval = pair<double, double>(min, max);
+	if (real_distributions_normal.find(interval) == real_distributions_normal.end()) //distribution not found
+	{
+		//Create new distribution
+		real_distributions_normal[interval] = normal_distribution<double>(min, max);
+	}
+	return real_distributions_normal[interval](mersenne_twister);
 }

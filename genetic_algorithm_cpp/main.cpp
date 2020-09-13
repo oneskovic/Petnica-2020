@@ -6,20 +6,17 @@ int main()
 	unordered_map<string, double> hparams =
 	{
 		{"max_parameter_degree",4},
-		{"no_parameters",2},
+		{"no_parameters",1},
 		{"no_blue_organisms",10},
 		{"no_red_organisms",10},
 		{"food_count",10},
 		{"board_size",10},
-		{"no_random_start",10},
-		{"no_random_final",1},
-		{"no_random_anneal_time",2000},
-		{"mutation_factor_min_start",-0.8},
+		{"mutation_factor_min_start",-0.1},
 		{"mutation_factor_min_final",0},
-		{"mutation_factor_max_start",0.8},
+		{"mutation_factor_max_start",0.1},
 		{"mutation_factor_max_final",0},
-		{"mutation_factor_anneal_time",10000},
-		{"no_generations",40000}
+		{"mutation_factor_anneal_time",1000},
+		{"no_generations",1500}
 	};
 
 	unordered_map<string, double> game_params =
@@ -32,8 +29,8 @@ int main()
 	RandomUtil rand_util = RandomUtil();
 	string log_dir = "results/GA-" + rand_util.rand_string(8);
 	auto logger = Logger(log_dir);
-	auto ga_agent = GaAgent(hparams, log_dir, 50, true);
-	//ga_agent.set_random_seed(1110983471);
+	auto ga_agent = GaAgent(hparams, log_dir, 10, true);
+	ga_agent.set_random_seed(1721801077);
 	vector<vector<double>> blue_genomes = { {1.62615,-3.50673,-0.7431,-5.39204},
 {1.62615,-3.50673,-0.7431,-5.39204},
 {1.62615,-3.50673,-0.7431,-5.39204},

@@ -23,8 +23,9 @@ class Organism
 public:
 	double compute_function_recursive(vector<double>* parameters) const;
 	Organism(int x_position, int y_position, int energy, int type, int time_to_reproduce, int polynomial_degree = 0, vector<double> coefficients = vector<double>());
+	Organism();
 	vector<double> to_vector(bool include_coefs = false);
-	int time_alive, x_pos, y_pos, id, type, time_to_reproduce, polynomial_max_degree;
+	double time_alive; int x_pos, y_pos, id, type, time_to_reproduce, polynomial_max_degree;
 	double energy;
 	vector<double> coefficients;
 private:
