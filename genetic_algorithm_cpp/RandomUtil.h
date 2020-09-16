@@ -46,13 +46,12 @@ public:
 	/// <summary>
 	/// Produces a random double from normal distribution in range [lower_bound,upper_bound)
 	/// </summary>
-	double rand_double_normal(double min, double max);
+	double rand_double_normal(double mean, double stddev);
 	/// <summary>
 	/// Reorders the given vector randomly
 	/// </summary>
 	template <class t>
 	void random_shuffle(vector<t>& elements);
-
 	/// <summary>
 	/// Produces a vector of required length (count) by picking random elements
 	/// with given probabilities

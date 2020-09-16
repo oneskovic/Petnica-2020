@@ -9,12 +9,12 @@ public:
 	/// Combines coefficients from organism1 and organism2
 	/// Mutates the childand returns the coefficients
 	/// </summary>
-	vector<double> combine_organisms(Organism* organism1, Organism* organism2, vector<double> mutation_factor_range);
+	vector<double> combine_organisms(Organism* organism1, Organism* organism2, double mutation_stddev);
 	/// <summary>
 	/// Returns coefficients gotten from combining random pairs of organisms
 	/// count - number of coefficients to return
 	/// </summary>
-	vector<vector<double>> get_coeffs_from_best(vector<Organism>* organisms, int total_count, vector<double> mutation_factor_range);
+	vector<vector<double>> get_coeffs_from_best(vector<Organism>* organisms, int total_count, double mutation_stddev, bool as_parents = true);
 	
 	template <class T>
 	inline void hash_combine(std::size_t& seed, const T& v)

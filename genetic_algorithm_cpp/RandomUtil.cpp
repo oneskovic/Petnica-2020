@@ -81,13 +81,13 @@ double RandomUtil::rand_double(double min, double max)
 	return real_distributions[interval](mersenne_twister);
 }
 
-double RandomUtil::rand_double_normal(double min, double max)
+double RandomUtil::rand_double_normal(double mean, double stddev)
 {
-	std::pair<double, double> interval = pair<double, double>(min, max);
+	std::pair<double, double> interval = pair<double, double>(mean, stddev);
 	if (real_distributions_normal.find(interval) == real_distributions_normal.end()) //distribution not found
 	{
 		//Create new distribution
-		real_distributions_normal[interval] = normal_distribution<double>(min, max);
+		real_distributions_normal[interval] = normal_distribution<double>(mean, stddev);
 	}
 	return real_distributions_normal[interval](mersenne_twister);
 }

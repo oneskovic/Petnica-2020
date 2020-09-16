@@ -13,11 +13,49 @@ TimeStep::TimeStep(string type, double reward)
 
 double Organism::compute_function_recursive(vector<double>* parameters) const
 {
-    return 1/pow(parameters->at(0),2);
+    auto times_used = vector<int>(parameters->size(), -1);
+    size_t coef_index = 0;
+    int position = 0;
+    double result = 0;
+    vector<vector<double>> parameter_powers(parameters->size());
+    for (size_t i = 0; i < parameter_powers.size(); i++)
+    {
+        parameter_powers[i] = vector<double>(polynomial_max_degree+1);
+        double current_pow = 1;
+        double param = parameters->at(i);
+        for (size_t j = 0; j < parameter_powers[i].size(); j++)
+        {
+            parameter_powers[i][j] = current_pow;
+            current_pow *= param;
+        }
+    }
+
+    while (position  != -1)
+    {
+        if (position == times_used.size())
+        {
+            double params_multiplied = 1;
+            for (size_t i = 0; i < parameters->size(); i++)
+                params_multiplied *= parameter_powers[i][times_used[i]];
+            
+            //result += sigmoid(coefficients[coef_index++]*multiply_params(parameters,&times_used));
+            result += sigmoid(coefficients[coef_index++] * params_multiplied);
+            position--;
+        }
+        else
+        {
+            if (times_used[position] == polynomial_max_degree)
+                times_used[position--] = -1;
+
+            else
+                times_used[position++]++;
+        }
+    }
+    return result;
+    /*int coef_pos = 0;
     auto times_used = vector<int>(parameters->size(), 0);
-    //auto available_coefs = deque<double>(coefficients.begin(), coefficients.end());
-    int coef_pos = 0;
-    return eval_function(parameters, &times_used, 0, polynomial_max_degree, &coef_pos, coefficients);
+    auto res = eval_function(parameters, &times_used, 0, polynomial_max_degree, &coef_pos, coefficients);
+    return res;*/
 }
 
 Organism::Organism(int x_position, int y_position, int energy, int type, int time_to_reproduce, int polynomial_degree, vector<double> coefficients)
@@ -60,8 +98,9 @@ double Organism::multiply_params(vector<double>* parameters, vector<int>* times_
 
 double Organism::sigmoid(double value) const
 {
-    return value;
+    //return value;
     //return 1.0 / (1 + exp(-0.1*value));
+    return value / (1 + abs(value));
 }
 
 double Organism::eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree, int* available_coef_pos, const vector<double>& coefs) const
@@ -316,7 +355,7 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
     if (other_organisms->size() == 0)
         return { max_value, 0 };
 
-    Organism* max_value_organism = &other_organisms->at(0);
+    /*Organism* max_value_organism = &other_organisms->at(0);
 
     int best_action = 0;
     vector<int> possible_actions = { 0,1,2,3 };
@@ -363,9 +402,14 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
         }
         organism->x_pos = start_x;
         organism->y_pos = start_y;
-    }
+    }*/
 
-    /*for (int action : possible_actions)
+    int best_action = 0;
+    vector<int> possible_actions = { 0,1,2,3 };
+    int start_x = organism->x_pos;
+    int start_y = organism->y_pos;
+
+    for (int action : possible_actions)
     {
         move_organism(organism, action);
         double current_value = 0;
@@ -383,7 +427,7 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
             }
             else
                 is_predator_relative = -1;
-            vector<double> parameters = { distance };
+            vector<double> parameters = { distance, is_predator_relative, organism->energy };
             double function_value = organism->compute_function_recursive(&parameters);
             current_value += function_value;
         }
@@ -394,7 +438,7 @@ pair<double,int> GameEnv::compute_organism_action(Organism* organism, vector<Org
         }
         organism->x_pos = start_x;
         organism->y_pos = start_y;
-    }*/
+    }
     return { max_value,best_action };
 }
 
