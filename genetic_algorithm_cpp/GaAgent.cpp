@@ -118,6 +118,10 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 			<< " average blue score:" << blue_score_sum / all_blue_organisms.size() << "\n"
 			<< " max blue score:" << max_score_blue << "\n"
 			<< " max total game score:" << max_total_game_score << "\n";
+
+		average_blue_scores.push_back(blue_score_sum / all_blue_organisms.size());
+		average_red_scores.push_back(red_score_sum / all_red_organisms.size());
+		returns.push_back(max_total_game_score);
 		mutation_stddev += mutation_stddev_step; // Anneal stddev
 	}
 
