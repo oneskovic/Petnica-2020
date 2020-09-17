@@ -53,6 +53,8 @@ private:
 	/// </summary>
 	generation train_generations(const generation& start_generation, const unordered_map<string, double>& hparams, double start_mutation_stddev, int no_generations, ProgressBar& progressbar);
 	evaluated_organisms evaluate_generation(const generation& generation, unordered_map<string,double> hparams, int no_evaluations = 10);
+	generation combine_generations(generation gen1, generation gen2, double mutation_stddev);
+	generation combine_generations(evaluated_organisms gen1, evaluated_organisms gen2, double mutation_stddev);
 public:	
 	double evaluate_ga(vector<vector<double>> blue_coeffs, vector<vector<double>> red_coeffs, GameEnv* eval_env, bool display_moves = false, int no_tests = 10);
 };

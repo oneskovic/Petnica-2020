@@ -16,7 +16,7 @@ int main()
 		{"mutation_stddev_anneal_time",8},
 		{"no_iterations",10},
 		{"no_parallel_populations",10},
-		{"generations_per_population",30}
+		{"generations_per_population",1}
 	};
 
 	unordered_map<string, double> game_params =
