@@ -58,7 +58,7 @@ int main()
 	/*GameEnv eval_env = GameEnv(blue_genomes, red_genomes, 3, &rand_util, 10, 10);
 	double v = ga_agent.evaluate_ga(blue_genomes, red_genomes, &eval_env, true, 100);
 	cout << v;*/
-	auto best_genomes = ga_agent.train(game_params);
+	auto best_genomes = ga_agent.train(game_params,8);
 	hparams["random_seed"] = ga_agent.get_random_seed();
 	logger.log_to_file(best_genomes, "best_genomes.txt");
 	logger.log_to_file(hparams, "hyperparameters.json");

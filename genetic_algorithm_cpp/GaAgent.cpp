@@ -31,7 +31,6 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	
 	vector<double> returns;
 	vector<vector<double>> best_genomes;
-	double max_avg_score = numeric_limits<double>::min();
 
 	double no_random = hparams["no_random_start"];
 	double random_step = (hparams["no_random_final"] - no_random) / hparams["no_random_anneal_time"];
@@ -80,19 +79,14 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		sort(evaluated.begin(), evaluated.end());
 		evaluated_classes.clear();
 
-		cout << evaluated[0].score << "\n";
-		returns.push_back(evaluated[0].score);
+		auto max_score = max_element(evaluated.begin(), evaluated.end(),
+			[](const training_class& lhs, const training_class& rhs)
+			{
+				return lhs.score < rhs.score;
+			})->score;
 
-		//Pick pairs to reproduce
-		/*vector<int> possible_positions(class_count);
-		vector<double> scores(class_count);
-		for (size_t i = 0; i < class_count; i++)
-		{
-			possible_positions[i] = i;
-			scores[i] = evaluated[i].score;
-		}
-		vector<int> reproduction_pairs = 
-			random_util.random_choices(possible_positions, scores, class_count * 2);*/
+		cout << max_score << "\n";
+		returns.push_back(max_score);
 
 		for (size_t i = 0; i < class_count; i++)
 		{
@@ -104,55 +98,6 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 			}
 			training_classes.push_back(combine_classes(evaluated[pos1], evaluated[pos2]));
 		}
-		
-		/*if (gen_number > 0)
-		{
-			prev_blue_organisms = vector<Organism>(env.dead_blue_organisms.begin(),env.dead_blue_organisms.end());
-			prev_red_organisms = vector<Organism>(env.dead_red_organisms.begin(), env.dead_red_organisms.end());
-		}
-		env = GameEnv(blue_coeffs, red_coeffs, max_degree, &this->random_util, hparams["food_count"], hparams["board_size"]);
-		
-		// Evaluate the GA
-		if (eval_interval > 0 && (gen_number+1)%eval_interval == 0)
-		{
-			auto eval_blue_coeffs = ga_util.get_coeffs_from_best(&prev_blue_organisms, eval_game_params["no_blue_organisms"], eval_game_params["no_blue_organisms"], 0, { 0,0 });
-			auto eval_red_coeffs = ga_util.get_coeffs_from_best(&prev_red_organisms, eval_game_params["no_red_organisms"], eval_game_params["no_red_organisms"], 0, { 0,0 });
-			GameEnv eval_env = GameEnv(eval_blue_coeffs, eval_red_coeffs, max_degree, &this->random_util, eval_game_params["food_count"], eval_game_params["board_size"]);
-
-			double avg_return = evaluate_ga(eval_blue_coeffs, eval_red_coeffs, &eval_env, display_moves,30);
-			returns.push_back(avg_return);
-			int max_time_alive = -1;
-			for (auto organism: prev_red_organisms)
-			{
-				max_time_alive = max(max_time_alive, organism.time_alive);
-			}
-			cout << "Generation " << gen_number << ":" << avg_return << " max time alive: " << max_time_alive <<"\n";
-
-			if (avg_return > max_avg_score)
-			{
-				best_genomes.clear();
-				best_genomes.reserve(eval_blue_coeffs.size() + eval_red_coeffs.size());
-				best_genomes.insert(best_genomes.end(), eval_blue_coeffs.begin(), eval_blue_coeffs.end());
-				best_genomes.insert(best_genomes.end(), eval_red_coeffs.begin(), eval_red_coeffs.end());
-				max_avg_score = avg_return;
-			}
-		}
-		
-		auto time_step = env.reset();
-		while (!time_step.is_last())
-		{
-			time_step = env.step();
-		}
-
-		auto blue_organisms = vector<Organism>(env.dead_blue_organisms.begin(), env.dead_blue_organisms.end());
-		auto red_organisms = vector<Organism>(env.dead_red_organisms.begin(), env.dead_red_organisms.end());
-		vector<double> mutation_factor_range = { mutation_factor_min,mutation_factor_max };
-		blue_coeffs = ga_util.get_coeffs_from_best(&blue_organisms, no_blues, hparams["no_best"], round(no_random), mutation_factor_range);
-		red_coeffs = ga_util.get_coeffs_from_best(&red_organisms, no_reds, hparams["no_best"], round(no_random), mutation_factor_range);
-
-		no_random = max(hparams["no_random_final"],no_random+random_step);
-		mutation_factor_min = min(mutation_factor_min_final, mutation_factor_min+mutation_factor_min_step);
-		mutation_factor_max = max(mutation_factor_max_step, mutation_factor_max+mutation_factor_max_step);*/
 	}
 
 	if (should_log)
