@@ -23,35 +23,35 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	int no_reds = hparams["no_red_organisms"];
 	int no_parameters = hparams["no_parameters"];
 	int coef_count = pow(max_degree + 1, no_parameters);
+	int parallel_populations = hparams["no_parallel_populations"];
+	int generations_per_population = hparams["generations_per_population"];
+	int no_iterations = hparams["no_iterations"];
+	double mutation_stddev = hparams["mutation_stddev_start"];
+	int mutation_stddev_anneal_time = hparams["mutation_stddev_anneal_time"];
+	double mutation_stddev_step = -mutation_stddev / mutation_stddev_anneal_time;
+
 	ga_util = GaUtil(&this->random_util, coef_count);
 
 	vector<double> returns;
 	vector<double> average_red_scores;
 	vector<double> average_blue_scores;
 	vector<vector<double>> best_genomes;
-	double max_avg_score = numeric_limits<double>::min();
 
-	double mutation_stddev = hparams["mutation_stddev_start"];
-	int mutation_stddev_anneal_time = hparams["mutation_stddev_anneal_time"];
-	double mutation_stddev_step = - mutation_stddev / mutation_stddev_anneal_time;
-
-	int parallel_generations = 10;
 	TSDeque<training_group> generations_to_train;
-	for (size_t i = 0; i < parallel_generations; i++)
+	for (size_t i = 0; i < parallel_populations; i++)
 	{
 		auto blue_coeffs = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
 		auto red_coeffs = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);
 		generation current_gen = { blue_coeffs,red_coeffs };
-		generations_to_train.push_back({ 10, current_gen });
+		generations_to_train.push_back({ generations_per_population, current_gen });
 	}
 
 	TSDeque<evaluated_organisms> trained_and_evaluated;
 	vector<thread> worker_threads = vector<thread>(no_threads);
 
-	int no_iterations = 50;
 	for (int iteration_number = 0; iteration_number < no_iterations; iteration_number++)
 	{
-		ProgressBar progressbar = ProgressBar(parallel_generations * 10);
+		ProgressBar progressbar = ProgressBar(parallel_populations * generations_per_population);
 		// Start worker threads
 		for (size_t i = 0; i < no_threads; i++)
 		{
@@ -70,7 +70,7 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		
 		// Collect all trained organisms into a single vector
 		vector<Organism> all_red_organisms, all_blue_organisms;
-		for (size_t i = 0; i < parallel_generations; i++)
+		for (size_t i = 0; i < parallel_populations; i++)
 		{
 			auto evaluated_organisms = trained_and_evaluated.pop_front();
 			all_red_organisms.insert(all_red_organisms.end(), evaluated_organisms.red_organisms.begin(), evaluated_organisms.red_organisms.end());
@@ -105,11 +105,11 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		}
 
 		// Start new generations
-		for (size_t i = 0; i < parallel_generations; i++)
+		for (size_t i = 0; i < parallel_populations; i++)
 		{
 			generation new_gen = { ga_util.get_coeffs_from_best(&all_blue_organisms,no_blues,mutation_stddev),
 			ga_util.get_coeffs_from_best(&all_red_organisms,no_reds,mutation_stddev,false) };
-			generations_to_train.push_back({10, new_gen });
+			generations_to_train.push_back({generations_per_population, new_gen });
 		}
 		// Log stats to screen
 		cout << "\nIteration: " << iteration_number << "\n"
@@ -148,27 +148,6 @@ void GaAgent::set_random_seed(size_t seed)
 
 void GaAgent::evaluate_functions(const vector<Organism>& organisms, string file_name)
 {
-	/*vector<vector<double>> organism_function_evaluations;
-	vector<int>second_args = { -1,1 };
-	for (int second_arg : second_args)
-	{
-		organism_function_evaluations.clear();
-		organism_function_evaluations.reserve(organisms.size());
-		for (size_t i = 0; i < organisms.size(); i++)
-		{
-			vector<double> y_values;
-			int x = 0;
-			while (x <= 10)
-			{
-				vector<double> parameters = { (double)x, (double)second_arg };
-				double y = organisms[i].compute_function_recursive(&parameters);
-				y_values.push_back(y);
-				x++;
-			}
-			organism_function_evaluations.push_back(y_values);
-		}
-		logger->log_to_file(organism_function_evaluations, file_name + to_string(second_arg) + ".csv");
-	}*/
 	vector<vector<double>> organism_coefs;
 	for (auto organism: organisms)
 		organism_coefs.push_back(organism.coefficients);

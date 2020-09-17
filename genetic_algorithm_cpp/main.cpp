@@ -13,8 +13,10 @@ int main()
 		{"food_count",10},
 		{"board_size",10},
 		{"mutation_stddev_start",1},
-		{"mutation_stddev_anneal_time",5},
-		{"no_generations",10}
+		{"mutation_stddev_anneal_time",8},
+		{"no_iterations",10},
+		{"no_parallel_populations",10},
+		{"generations_per_population",30}
 	};
 
 	unordered_map<string, double> game_params =

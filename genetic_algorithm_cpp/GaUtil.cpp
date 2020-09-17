@@ -34,7 +34,7 @@ vector<vector<double>> GaUtil::get_coeffs_from_best(vector<Organism>* organisms,
     for (size_t i = 0; i < organisms->size(); i++)
     {
         positions[i] = i;
-        scores[i] = organisms->at(i).time_alive;
+        scores[i] = max(0.0,organisms->at(i).time_alive-20);
     }
 
     if (as_parents)

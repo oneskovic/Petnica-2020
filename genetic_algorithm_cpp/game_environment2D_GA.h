@@ -53,7 +53,7 @@ public:
 	int polynomial_degree;
 	int start_hp = 20;
 	int board_length = 10;
-	int food_energy = 10;
+	int food_energy = 15;
 	int max_moves = 200;
 	int current_move_number = 0;
 	int board_food_count = 10;
