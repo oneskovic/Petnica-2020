@@ -22,9 +22,8 @@ public:
 		std::hash<T> hasher;
 		seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 	}
-
-private:
 	RandomUtil* rand_util;
+private:
 	int coefficients_count = 0;
 	bool compare_organisms(Organism organism1, Organism organism2);
 };
