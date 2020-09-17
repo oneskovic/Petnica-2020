@@ -12,7 +12,7 @@ class GaAgent
 {
 public:
 	GaAgent(unordered_map<string, double> hyperparameters, string log_dir = "", int eval_interval = -1, bool display_moves = false);
-	vector<vector<double>> train(unordered_map<string, double> eval_game_params, int no_threads = 4);
+	void train(unordered_map<string, double> eval_game_params, int no_threads = 4);
 	size_t get_random_seed();
 	void set_random_seed(size_t seed);
 private:

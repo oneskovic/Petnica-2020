@@ -16,7 +16,7 @@ GaAgent::GaAgent(unordered_map<string, double> hyperparameters, string log_dir, 
 		this->logger = new Logger(log_dir);
 }
 
-vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_params, int no_threads)
+void GaAgent::train(unordered_map<string, double> eval_game_params, int no_threads)
 {
 	int max_degree = hparams["max_parameter_degree"];
 	int no_blues = hparams["no_blue_organisms"];
@@ -35,7 +35,9 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	vector<double> returns;
 	vector<double> average_red_scores;
 	vector<double> average_blue_scores;
-	vector<vector<double>> best_genomes;
+	vector<vector<double>> genome_samples_red;
+	vector<vector<double>> genome_samples_blue;
+
 
 	TSDeque<training_group> generations_to_train;
 	for (size_t i = 0; i < parallel_populations; i++)
@@ -51,100 +53,87 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 
 	for (int iteration_number = 0; iteration_number < no_iterations; iteration_number++)
 	{
-		try
+
+		ProgressBar progressbar = ProgressBar(parallel_populations * generations_per_population);
+		// Start worker threads
+		for (size_t i = 0; i < no_threads; i++)
 		{
-			ProgressBar progressbar = ProgressBar(parallel_populations * generations_per_population);
-			// Start worker threads
-			for (size_t i = 0; i < no_threads; i++)
-			{
-				worker_threads[i] = thread([&generations_to_train, &trained_and_evaluated, this, mutation_stddev, &progressbar]() {
-					while (!generations_to_train.is_empty())
-					{
-						auto current_gen = generations_to_train.pop_front();
-						auto trained_gen = train_generations(current_gen.generation_to_train, hparams, mutation_stddev, current_gen.remaining_trainings, progressbar);
-						trained_and_evaluated.push_back(evaluate_generation(trained_gen, hparams));
-					}
-					});
-			}
-			// Join all threads
-			for (size_t i = 0; i < no_threads; i++)
-			{
-				worker_threads[i].join();
-			}
+			worker_threads[i] = thread([&generations_to_train, &trained_and_evaluated, this, mutation_stddev, &progressbar]() {
+				while (!generations_to_train.is_empty())
+				{
+					auto current_gen = generations_to_train.pop_front();
+					auto trained_gen = train_generations(current_gen.generation_to_train, hparams, mutation_stddev, current_gen.remaining_trainings, progressbar);
+					trained_and_evaluated.push_back(evaluate_generation(trained_gen, hparams));
+				}
+				});
 		}
-		catch (exception e)
+		// Join all threads
+		for (size_t i = 0; i < no_threads; i++)
 		{
-			cout << e.what();
+			worker_threads[i].join();
 		}
+
 		vector<pair<evaluated_organisms, double>> generation_total_scores;
 		double max_score_red = -1, max_score_blue = -1, max_total_game_score = -1;
 		double max_avg_blue_score = -1, max_avg_red_score = -1;
 
-		try {
-			for (size_t i = 0; i < parallel_populations; i++)
-			{
-				auto current_population = trained_and_evaluated.pop_front();
-				double blue_score_sum = 0.0, red_score_sum = 0.0;
-				int blue_count = current_population.blue_organisms.size();
-				for (size_t i = 0; i < blue_count; i++)
-				{
-					double red_score = current_population.red_organisms[i].time_alive;
-					double blue_score = current_population.blue_organisms[i].time_alive;
-					blue_score_sum += blue_score;
-					red_score_sum += red_score;
-					max_score_blue = max(max_score_blue, blue_score);
-					max_score_red = max(max_score_red, red_score);
-				}
+		for (size_t _i = 0; _i < parallel_populations; _i++)
+		{
+			auto current_population = trained_and_evaluated.pop_front();
+			double blue_score_sum = 0.0, red_score_sum = 0.0;
+			int blue_count = current_population.blue_organisms.size();
 
-				double total_game_score = blue_score_sum + red_score_sum;
-				max_avg_blue_score = max(max_avg_blue_score, blue_score_sum / blue_count);
-				max_avg_red_score = max(max_avg_red_score, red_score_sum / blue_count);
-				max_total_game_score = max(max_total_game_score, total_game_score);
-				returns.push_back(total_game_score);
-				generation_total_scores.push_back({ current_population,total_game_score });
-			}
-		}
-		catch (exception e)
-		{
-			cout << e.what();
-		}
-		try
-		{
-			// Start new generations
-			vector<int> positions(generation_total_scores.size());
-			vector<double> scores(generation_total_scores.size());
-			for (size_t i = 0; i < generation_total_scores.size(); i++)
+			genome_samples_blue.push_back(current_population.blue_organisms[0].coefficients);
+			genome_samples_red.push_back(current_population.red_organisms[0].coefficients);
+			for (size_t j = 0; j < blue_count; j++)
 			{
-				positions[i] = i;
-				scores[i] = generation_total_scores[i].second;
+				double red_score = current_population.red_organisms[j].time_alive;
+				double blue_score = current_population.blue_organisms[j].time_alive;
+				blue_score_sum += blue_score;
+				red_score_sum += red_score;
+				max_score_blue = max(max_score_blue, blue_score);
+				max_score_red = max(max_score_red, red_score);
 			}
 
-			auto parent_pairs = ga_util.rand_util->random_choices(positions, scores, 2 * parallel_populations);
-			for (size_t i = 0; i < 2 * parallel_populations; i += 2)
-			{
-				int pos1 = parent_pairs[i];
-				int pos2 = parent_pairs[i + 1];
-				auto new_gen = combine_generations(generation_total_scores[pos1].first, generation_total_scores[pos2].first, mutation_stddev);
-				generations_to_train.push_back({ generations_per_population,new_gen });
-			}
-
-			// Log stats to screen
-			cout << "\nIteration: " << iteration_number << "\n"
-				<< " average red score:" << max_avg_red_score << "\n"
-				<< " max red score:" << max_score_red << "\n"
-				<< " average blue score:" << max_avg_blue_score << "\n"
-				<< " max blue score:" << max_score_blue << "\n"
-				<< " max total game score:" << max_total_game_score << "\n";
-
-			average_blue_scores.push_back(max_avg_blue_score);
-			average_red_scores.push_back(max_avg_red_score);
-			returns.push_back(max_total_game_score);
-			mutation_stddev += mutation_stddev_step; // Anneal stddev
+			double total_game_score = blue_score_sum + red_score_sum;
+			max_avg_blue_score = max(max_avg_blue_score, blue_score_sum / blue_count);
+			max_avg_red_score = max(max_avg_red_score, red_score_sum / blue_count);
+			max_total_game_score = max(max_total_game_score, total_game_score);
+			returns.push_back(total_game_score);
+			generation_total_scores.push_back({ current_population,total_game_score });
 		}
-		catch (exception e)
+
+		// Start new generations
+		vector<int> positions(generation_total_scores.size());
+		vector<double> scores(generation_total_scores.size());
+		for (size_t i = 0; i < generation_total_scores.size(); i++)
 		{
-			cout << e.what();
+			positions[i] = i;
+			scores[i] = generation_total_scores[i].second;
 		}
+
+		auto parent_pairs = ga_util.rand_util->random_choices(positions, scores, 2 * parallel_populations);
+		for (size_t i = 0; i < 2 * parallel_populations; i += 2)
+		{
+			int pos1 = parent_pairs[i];
+			int pos2 = parent_pairs[i + 1];
+			auto new_gen = combine_generations(generation_total_scores[pos1].first, generation_total_scores[pos2].first, mutation_stddev);
+			generations_to_train.push_back({ generations_per_population,new_gen });
+		}
+
+		// Log stats to screen
+		cout << "\nIteration: " << iteration_number << "\n"
+			<< " average red score:" << max_avg_red_score << "\n"
+			<< " max red score:" << max_score_red << "\n"
+			<< " average blue score:" << max_avg_blue_score << "\n"
+			<< " max blue score:" << max_score_blue << "\n"
+			<< " max total game score:" << max_total_game_score << "\n";
+
+		average_blue_scores.push_back(max_avg_blue_score);
+		average_red_scores.push_back(max_avg_red_score);
+		returns.push_back(max_total_game_score);
+		mutation_stddev += mutation_stddev_step; // Anneal stddev
+		mutation_stddev = max(mutation_stddev, 1e-10); // Make sure stddev != 0
 	}
 
 	if (should_log)
@@ -152,8 +141,9 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 		logger->log_to_file(returns, "returns.csv");
 		logger->log_to_file(average_blue_scores, "best-blue-scores.csv");
 		logger->log_to_file(average_red_scores, "best-red-scores.csv");
+		logger->log_to_file(genome_samples_blue, "genome-samples-blue.csv");
+		logger->log_to_file(genome_samples_red, "genome-samples-red.csv");
 	}
-	return best_genomes;
 }
 
 size_t GaAgent::get_random_seed()
@@ -276,18 +266,21 @@ GaAgent::generation GaAgent::combine_generations(generation gen1, generation gen
 	red_genomes.insert(red_genomes.end(), gen1.red_coefficients.begin(), gen1.red_coefficients.begin() + no_genomes / 2);
 	red_genomes.insert(red_genomes.end(), gen2.red_coefficients.begin(), gen2.red_coefficients.begin() + no_genomes / 2);
 	
-	auto mutation_vec = random_util.rand_matrix_double(blue_genomes.size(), blue_genomes[0].size(), 0, mutation_stddev, "normal");
-	for (size_t row = 0; row < blue_genomes.size(); row++)
+	if (mutation_stddev > 0)
 	{
-		for (size_t col = 0; col < blue_genomes[0].size(); col++)
-			blue_genomes[row][col] += blue_genomes[row][col] * mutation_vec[row][col];
-	}
-	
-	mutation_vec = random_util.rand_matrix_double(red_genomes.size(), red_genomes[0].size(), 0, mutation_stddev, "normal");
-	for (size_t row = 0; row < red_genomes.size(); row++)
-	{
-		for (size_t col = 0; col < red_genomes[0].size(); col++)
-			red_genomes[row][col] += red_genomes[row][col] * mutation_vec[row][col];
+		auto mutation_vec = random_util.rand_matrix_double(blue_genomes.size(), blue_genomes[0].size(), 0, mutation_stddev, "normal");
+		for (size_t row = 0; row < blue_genomes.size(); row++)
+		{
+			for (size_t col = 0; col < blue_genomes[0].size(); col++)
+				blue_genomes[row][col] += blue_genomes[row][col] * mutation_vec[row][col];
+		}
+
+		mutation_vec = random_util.rand_matrix_double(red_genomes.size(), red_genomes[0].size(), 0, mutation_stddev, "normal");
+		for (size_t row = 0; row < red_genomes.size(); row++)
+		{
+			for (size_t col = 0; col < red_genomes[0].size(); col++)
+				red_genomes[row][col] += red_genomes[row][col] * mutation_vec[row][col];
+		}
 	}
 
 	generation combined = {
@@ -340,10 +333,7 @@ GaAgent::generation GaAgent::train_generations(const generation& start_generatio
 		current_gen = train_generation(current_gen, hparams, stddev);
 		stddev += mutation_dev_step;
 		progressbar.Progress();
-		if ((i+1)%5 == 0)
-		{
-			progressbar.ShowBar();
-		}
+		progressbar.ShowBar();
 	}
 	return current_gen;
 }

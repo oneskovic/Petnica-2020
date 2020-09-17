@@ -13,10 +13,10 @@ int main()
 		{"food_count",10},
 		{"board_size",10},
 		{"mutation_stddev_start",1},
-		{"mutation_stddev_anneal_time",8},
-		{"no_iterations",10},
+		{"mutation_stddev_anneal_time",25},
+		{"no_iterations",30},
 		{"no_parallel_populations",10},
-		{"generations_per_population",1}
+		{"generations_per_population",20}
 	};
 
 	unordered_map<string, double> game_params =
@@ -55,12 +55,11 @@ int main()
 	double v = ga_agent.evaluate_ga(blue_genomes, red_genomes, &eval_env, true, 100);
 	cout << v;*/
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-	auto best_genomes = ga_agent.train(game_params);
+	ga_agent.train(game_params);
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 	auto duration = duration_cast<chrono::milliseconds> (end - begin).count();
 	cout << "\nTraining took: " << duration << "ms";
 	hparams["random_seed"] = ga_agent.get_random_seed();
-	logger.log_to_file(best_genomes, "best_genomes.txt");
 	logger.log_to_file(hparams, "hyperparameters.json");
 	logger.log_to_file(game_params, "gameparams.json");
 	return 0;
