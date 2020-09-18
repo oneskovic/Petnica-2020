@@ -62,8 +62,8 @@ void GaAgent::train(unordered_map<string, double> eval_game_params, int no_threa
 				while (!generations_to_train.is_empty())
 				{
 					auto current_gen = generations_to_train.pop_front();
-					auto trained_gen = train_generations(current_gen.generation_to_train, hparams, mutation_stddev, current_gen.remaining_trainings, progressbar);
-					trained_and_evaluated.push_back(evaluate_generation(trained_gen, hparams));
+					//auto trained_gen = train_generations(current_gen.generation_to_train, hparams, mutation_stddev, current_gen.remaining_trainings, progressbar);
+					trained_and_evaluated.push_back(evaluate_generation(current_gen.generation_to_train, hparams));
 				}
 				});
 		}
@@ -95,12 +95,12 @@ void GaAgent::train(unordered_map<string, double> eval_game_params, int no_threa
 				max_score_red = max(max_score_red, red_score);
 			}
 
-			double total_game_score = blue_score_sum + red_score_sum;
+			double total_game_score = current_population.score;
 			max_avg_blue_score = max(max_avg_blue_score, blue_score_sum / blue_count);
 			max_avg_red_score = max(max_avg_red_score, red_score_sum / blue_count);
 			max_total_game_score = max(max_total_game_score, total_game_score);
 			returns.push_back(total_game_score);
-			generation_total_scores.push_back({ current_population,total_game_score });
+			generation_total_scores.push_back({ current_population,current_population.score });
 		}
 
 		// Start new generations
@@ -112,11 +112,21 @@ void GaAgent::train(unordered_map<string, double> eval_game_params, int no_threa
 			scores[i] = generation_total_scores[i].second;
 		}
 
-		auto parent_pairs = ga_util.rand_util->random_choices(positions, scores, 2 * parallel_populations);
+		sort(generation_total_scores.begin(), generation_total_scores.end(),
+			[](const pair<evaluated_organisms, double>& lhs, const pair<evaluated_organisms, double>& rhs) {
+				return lhs.second > rhs.second;
+			});
+		//auto parent_pairs = ga_util.rand_util->random_choices(positions, scores, 2 * parallel_populations);
 		for (size_t i = 0; i < 2 * parallel_populations; i += 2)
 		{
-			int pos1 = parent_pairs[i];
-			int pos2 = parent_pairs[i + 1];
+			/*int pos1 = parent_pairs[i];
+			int pos2 = parent_pairs[i + 1];*/
+			int pos1 = random_util.rand_int(9);
+			int pos2 = random_util.rand_int(9);
+			while (pos2 == pos1)
+			{
+				pos2 = random_util.rand_int(9);
+			}
 			auto new_gen = combine_generations(generation_total_scores[pos1].first, generation_total_scores[pos2].first, mutation_stddev);
 			generations_to_train.push_back({ generations_per_population,new_gen });
 		}
@@ -202,6 +212,7 @@ GaAgent::evaluated_organisms GaAgent::evaluate_generation(const generation& gene
 		organisms_hashed[organism_hash] = { Organism(),0 };
 	}
 
+	double total_return = 0;
 	// Evaluate the current generation a couple of times to get an average score
 	for (size_t i = 0; i < no_evaluations; i++)
 	{
@@ -209,8 +220,8 @@ GaAgent::evaluated_organisms GaAgent::evaluate_generation(const generation& gene
 		while (!time_step.is_last())
 		{
 			time_step = env.step();
+			total_return += time_step.reward;
 		}
-
 		auto organisms = vector<Organism>(env.dead_blue_organisms.begin(), env.dead_blue_organisms.end());
 		organisms.insert(organisms.end(), env.dead_red_organisms.begin(), env.dead_red_organisms.end());
 
@@ -246,7 +257,7 @@ GaAgent::evaluated_organisms GaAgent::evaluate_generation(const generation& gene
 		}
 	}
 
-	return { final_blue_organisms,final_red_organisms };
+	return { final_blue_organisms,final_red_organisms,total_return/no_evaluations};
 }
 
 GaAgent::generation GaAgent::combine_generations(generation gen1, generation gen2, double mutation_stddev)
@@ -266,22 +277,21 @@ GaAgent::generation GaAgent::combine_generations(generation gen1, generation gen
 	red_genomes.insert(red_genomes.end(), gen1.red_coefficients.begin(), gen1.red_coefficients.begin() + no_genomes / 2);
 	red_genomes.insert(red_genomes.end(), gen2.red_coefficients.begin(), gen2.red_coefficients.begin() + no_genomes / 2);
 	
-	if (mutation_stddev > 0)
+	
+	auto mutation_vec = random_util.rand_matrix_double(blue_genomes.size(), blue_genomes[0].size(), 0, mutation_stddev, "normal");
+	for (size_t row = 0; row < blue_genomes.size(); row++)
 	{
-		auto mutation_vec = random_util.rand_matrix_double(blue_genomes.size(), blue_genomes[0].size(), 0, mutation_stddev, "normal");
-		for (size_t row = 0; row < blue_genomes.size(); row++)
-		{
-			for (size_t col = 0; col < blue_genomes[0].size(); col++)
-				blue_genomes[row][col] += blue_genomes[row][col] * mutation_vec[row][col];
-		}
-
-		mutation_vec = random_util.rand_matrix_double(red_genomes.size(), red_genomes[0].size(), 0, mutation_stddev, "normal");
-		for (size_t row = 0; row < red_genomes.size(); row++)
-		{
-			for (size_t col = 0; col < red_genomes[0].size(); col++)
-				red_genomes[row][col] += red_genomes[row][col] * mutation_vec[row][col];
-		}
+		for (size_t col = 0; col < blue_genomes[0].size(); col++)
+			blue_genomes[row][col] += blue_genomes[row][col] * mutation_vec[row][col];
 	}
+
+	mutation_vec = random_util.rand_matrix_double(red_genomes.size(), red_genomes[0].size(), 0, mutation_stddev, "normal");
+	for (size_t row = 0; row < red_genomes.size(); row++)
+	{
+		for (size_t col = 0; col < red_genomes[0].size(); col++)
+			red_genomes[row][col] += red_genomes[row][col] * mutation_vec[row][col];
+	}
+	
 
 	generation combined = {
 		blue_genomes,red_genomes
@@ -312,14 +322,14 @@ GaAgent::generation GaAgent::train_generation(const generation& previous_generat
 	auto blue_coeffs = previous_generation.blue_coefficients;
 	auto red_coeffs = previous_generation.red_coefficients;
 	
-	auto evaluated = evaluate_generation(previous_generation, hyperparameters);
+	/*auto evaluated = evaluate_generation(previous_generation, hyperparameters);
 
 	int no_blues = hyperparameters.at("no_blue_organisms");
 	int no_reds = hyperparameters.at("no_red_organisms");
 
 	blue_coeffs = ga_util.get_coeffs_from_best(&evaluated.blue_organisms, no_blues, mutation_stddev);
 	red_coeffs = ga_util.get_coeffs_from_best(&evaluated.red_organisms, no_reds, mutation_stddev);
-
+	*/
 	return { blue_coeffs,red_coeffs };
 }
 

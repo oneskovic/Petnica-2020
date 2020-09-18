@@ -30,6 +30,7 @@ private:
 	{
 		vector<Organism> blue_organisms;
 		vector<Organism> red_organisms;
+		double score;
 	};
 	Logger* logger;
 	unordered_map<string, double> hparams;
