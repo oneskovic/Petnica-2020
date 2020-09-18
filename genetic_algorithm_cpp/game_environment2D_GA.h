@@ -21,16 +21,17 @@ public:
 class Organism
 {
 public:
-	double compute_function_recursive(vector<double>* parameters);
+	double compute_function_recursive(vector<double>* parameters) const;
 	Organism(int x_position, int y_position, int energy, int type, int time_to_reproduce, int polynomial_degree = 0, vector<double> coefficients = vector<double>());
+	Organism();
 	vector<double> to_vector(bool include_coefs = false);
-	int time_alive, x_pos, y_pos, id, type, time_to_reproduce, polynomial_max_degree;
+	double time_alive; int x_pos, y_pos, id, type, time_to_reproduce, polynomial_max_degree;
 	double energy;
 	vector<double> coefficients;
 private:
-	double multiply_params(vector<double>* parameters, vector<int>* times_used);
-	double sigmoid(double value);
-	double eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree,int* available_coef_pos, vector<double>* coefs);
+	double multiply_params(vector<double>* parameters, vector<int>* times_used) const;
+	double sigmoid(double value) const;
+	double eval_function(vector<double>* parameters, vector<int>* times_used, int position, int max_degree, int* available_coef_pos, const vector<double>& coefs) const;
 
 };
 class GameEnv
@@ -52,7 +53,7 @@ public:
 	int polynomial_degree;
 	int start_hp = 20;
 	int board_length = 10;
-	int food_energy = 10;
+	int food_energy = 15;
 	int max_moves = 200;
 	int current_move_number = 0;
 	int board_food_count = 10;
@@ -82,4 +83,3 @@ private:
 	void reproduce_organisms(vector<Organism>* organisms);
 	void move_dead_organisms(vector<Organism>* organisms, list<Organism>* dead_organisms);
 };
-

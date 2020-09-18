@@ -6,7 +6,7 @@ int main()
 	unordered_map<string, double> hparams =
 	{
 		{"max_parameter_degree",3},
-		{"no_parameters",2},
+		{"no_parameters",3},
 		{"no_blue_organisms",10},
 		{"no_red_organisms",10},
 		{"food_count",10},
@@ -34,27 +34,7 @@ int main()
 	string log_dir = "results/GA-" + rand_util.rand_string(8);
 	auto logger = Logger(log_dir);
 	auto ga_agent = GaAgent(hparams, log_dir, 30, true);
-	//ga_agent.set_random_seed(1110983471);
-	vector<vector<double>> blue_genomes = { {1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204},
-{1.62615,-3.50673,-0.7431,-5.39204} };
-	vector<vector<double>> red_genomes = { {-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722},
-{-2.74498,-2.50337,-2.00521,1.58722} };
+	//ga_agent.set_random_seed(42);
 	/*GameEnv eval_env = GameEnv(blue_genomes, red_genomes, 3, &rand_util, 10, 10);
 	double v = ga_agent.evaluate_ga(blue_genomes, red_genomes, &eval_env, true, 100);
 	cout << v;*/

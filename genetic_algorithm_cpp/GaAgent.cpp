@@ -26,24 +26,8 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	int coef_count = pow(max_degree + 1, no_parameters);
 	auto ga_util = GaUtil(&this->random_util, coef_count);
 
-	/*auto blue_coeffs = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
-	auto red_coeffs = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);*/
-	
 	vector<double> returns;
 	vector<vector<double>> best_genomes;
-
-	double no_random = hparams["no_random_start"];
-	double random_step = (hparams["no_random_final"] - no_random) / hparams["no_random_anneal_time"];
-	
-	double mutation_factor_min = hparams["mutation_factor_min_start"];
-	double mutation_factor_max = hparams["mutation_factor_max_start"];
-	double mutation_factor_min_final = hparams["mutation_factor_min_final"];
-	double mutation_factor_max_final = hparams["mutation_factor_max_final"];
-	double mutation_factor_min_step = (mutation_factor_min_final - mutation_factor_min) / hparams["mutation_factor_anneal_time"];
-	double mutation_factor_max_step = (mutation_factor_max_final - mutation_factor_max) / hparams["mutation_factor_anneal_time"];
-
-	/*GameEnv env = GameEnv(blue_coeffs, red_coeffs, max_degree, &this->random_util, hparams["food_count"], hparams["board_size"]);
-	vector<Organism> prev_blue_organisms, prev_red_organisms;*/
 
 	int class_count = 100;
 	int best_classes = 10;
@@ -51,8 +35,8 @@ vector<vector<double>> GaAgent::train(unordered_map<string, double> eval_game_pa
 	TSDeque<training_class> evaluated_classes;
 	for (size_t i = 0; i < class_count; i++)
 	{
-		auto blue_genomes = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);
-		auto red_genomes = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
+		auto blue_genomes = random_util.rand_matrix_double(no_blues, coef_count, -10, 10);
+		auto red_genomes = random_util.rand_matrix_double(no_reds, coef_count, -10, 10);
 		training_class tc = {
 			red_genomes,
 			blue_genomes,
