@@ -4,6 +4,9 @@ from collections import deque
 from copy import deepcopy
 from gym import spaces
 from termcolor import colored
+import pygame
+import sys
+from threading import Thread
 
 class Organism:
     time_alive = 0
@@ -29,7 +32,7 @@ class Organism:
 
 
 class GameEnv(gym.Env):
-    metadata = {'render.modes': ['console']}
+    metadata = {'render.modes': ['console','graphical']}
     # Lists containing the currently alive organisms
     blue_organisms = []
     red_organisms = []
@@ -37,7 +40,7 @@ class GameEnv(gym.Env):
     green_organisms = []
     start_hp = 20 # HP / energy that all organisms have when the game starts
     board_length = 10 # Board will be of size board_length x board_length
-    food_energy = 10 # Energy that each green organism will have
+    food_energy = 17 # Energy that each green organism will have
     max_moves = 200 # The maximum number of moves a game can last
     current_move_number = 0
     board_food_count = 10 # The number of green organisms always present on the board
@@ -48,6 +51,47 @@ class GameEnv(gym.Env):
 
     organisms_to_move = []
     player_to_move = 'Red'
+
+    WINDOW_WIDTH = 400
+    WINDOW_HEIGHT = 400
+    BLACK = (0, 0, 0)
+    RED = (244, 91, 105)
+    BLUE = (87, 196, 229)
+    GREEN = (148, 232, 180)
+    WHITE = (200, 200, 200)
+    PYGAME_POLLING_STARTED = False
+
+    def drawGrid(self):
+        block_size = self.WINDOW_HEIGHT // self.board_length
+        for x in range(self.WINDOW_WIDTH // block_size):
+            for y in range(self.WINDOW_HEIGHT // block_size):
+                rect = pygame.Rect(x*block_size, y*block_size,
+                                block_size, block_size)
+                organism_type_at_pos = self._state[y][x][0]
+                square_color = self.WHITE
+                if organism_type_at_pos == 1:
+                    square_color = self.GREEN
+                elif organism_type_at_pos == 2:
+                    square_color = self.BLUE
+                elif organism_type_at_pos == 3:
+                    square_color = self.RED
+                pygame.draw.rect(SCREEN, square_color, rect)
+
+    def poll_pygame_events(self):
+        global SCREEN
+        pygame.init()
+        SCREEN = pygame.display.set_mode((self.WINDOW_HEIGHT, self.WINDOW_WIDTH))
+        SCREEN.fill(self.BLACK)
+        while True:
+            self.drawGrid()
+            events = pygame.event.get()
+            for event in events:
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    break
+                    #sys.exit()
+
+            pygame.display.update()
 
     def __init__(self, grid_size=10):
         self.board_length = grid_size
@@ -84,6 +128,9 @@ class GameEnv(gym.Env):
         self.organisms_to_move = deepcopy(self.blue_organisms)
         self.player_to_move = 'Blue'
         self.current_move_number = 0
+
+        self._state = np.zeros((self.board_length,self.board_length,4))
+
 
     def reshape_observation(self,observation):
         reshaped = []
@@ -164,7 +211,7 @@ class GameEnv(gym.Env):
             state[organism.y_pos][organism.x_pos][3] = 0
         
         organism_to_move = self.organisms_to_move[0]
-        state[organism_to_move.y_pos][organism_to_move.x_pos][0] = organism_to_move.type
+        state[organism_to_move.y_pos][organism_to_move.x_pos][0] = organism_to_move.type+1
         state[organism_to_move.y_pos][organism_to_move.x_pos][1] = organism_to_move.energy
         state[organism_to_move.y_pos][organism_to_move.x_pos][2] = organism_to_move.time_to_reproduce
         state[organism_to_move.y_pos][organism_to_move.x_pos][3] = 1
@@ -346,20 +393,22 @@ class GameEnv(gym.Env):
         return self._state, reward, self._episode_ended, info
 
     def render(self, mode='console'):
-        if mode != 'console':
-            raise NotImplementedError()
-        # agent is represented as a cross, rest as a dot
-        organism_to_move = self.organisms_to_move[0]
-        print('No blue organisms: ' + str(len(self.blue_organisms)))
-        print('No red organisms: ' + str(len(self.red_organisms)))
-        print('Organism to move is at: x={0},y={1}'.format(self.organisms_to_move[0].x_pos,self.organisms_to_move[0].y_pos))
-        for row in range(self.board_length):
-            for col in range(self.board_length):
-                if row == organism_to_move.y_pos and col == organism_to_move.x_pos:
-                    print(colored(int(self._state[row][col][0]),'yellow'),end='')
-                else:
-                    print(int(self._state[row][col][0]),end='')
-            print('')
-
+        if mode == 'console':
+            organism_to_move = self.organisms_to_move[0]
+            print('No blue organisms: ' + str(len(self.blue_organisms)))
+            print('No red organisms: ' + str(len(self.red_organisms)))
+            print('Organism to move is at: x={0},y={1}'.format(self.organisms_to_move[0].x_pos,self.organisms_to_move[0].y_pos))
+            for row in range(self.board_length):
+                for col in range(self.board_length):
+                    if row == organism_to_move.y_pos and col == organism_to_move.x_pos:
+                        print(colored(int(self._state[row][col][0]),'yellow'),end='')
+                    else:
+                        print(int(self._state[row][col][0]),end='')
+                print('')
+        elif mode == 'graphical':
+            if not self.PYGAME_POLLING_STARTED:
+                thread = Thread(target = self.poll_pygame_events)
+                thread.start()
+                self.PYGAME_POLLING_STARTED = True
     def close(self):
         pass

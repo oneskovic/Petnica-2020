@@ -10,3 +10,11 @@ results/
 deepqrcina.zip
 
 .vscode/settings.json
+
+deep_q_learning_keras/.vscode/.ropeproject/
+
+deep_q_learning_keras/tb_log/DQN_1/
+
+*.csv
+
+deep_q_learning_keras/.vscode/launch.json
