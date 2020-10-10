@@ -4,20 +4,31 @@ from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.deepq.policies import MlpPolicy
 from stable_baselines import DQN
 import time
+<<<<<<< HEAD
 import numpy as np
+=======
+
+>>>>>>> DQN-OpenAI-Board
 
 env = GameEnv()
 #env = gym.make('CartPole-v1')
 
+<<<<<<< HEAD
 # model = DQN(MlpPolicy, env, verbose=1, tensorboard_log ='tb_log')
 # model.learn(total_timesteps=10000000)
 # model.save("deepqrcina")
+=======
+model = DQN(MlpPolicy, env, verbose=1, tensorboard_log ='tb_log')
+model.learn(total_timesteps=10000000)
+model.save("deepqrcina")
+>>>>>>> DQN-OpenAI-Board
 
 model = DQN.load('deepqrcina')
 
 obs = env.reset()
 done = False
 total_reward = 0.0
+<<<<<<< HEAD
 
 q_values_for_actions = [[],[],[],[]]
 
@@ -48,4 +59,12 @@ while not done:
 for i in range(len(q_values_for_actions)):
     np_array = np.asarray(q_values_for_actions[i])
     np.savetxt("q_values"+str(i)+".csv", np_array, delimiter=",")
+=======
+while not done:
+    action, _states = model.predict(obs)
+    obs, reward, done, info = env.step(action)
+    total_reward += reward
+    env.render()
+    #time.sleep(2)
+>>>>>>> DQN-OpenAI-Board
 print(total_reward)
