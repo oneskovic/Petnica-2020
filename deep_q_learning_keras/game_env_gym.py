@@ -88,10 +88,7 @@ class GameEnv(gym.Env):
             for event in events:
                 if event.type == pygame.QUIT:
                     pygame.quit()
-<<<<<<< HEAD
                     break
-=======
->>>>>>> DQN-OpenAI-Board
                     #sys.exit()
 
             pygame.display.update()
